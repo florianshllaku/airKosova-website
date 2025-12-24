@@ -68,20 +68,22 @@ const cityNames = {
 // DEBUG MODE - Set to true to see browser (only works locally, not on server)
 // ========================================
 const DEBUG_MODE = process.env.NODE_ENV !== 'production'; // Auto-detect: false on server, true locally
+const IS_SERVER = process.env.NODE_ENV === 'production'; // True on VPS
 
 // ⚡ SPEED MODE - Faster automation
 const SPEED_MODE = true;
 
 // 🚀 TURBO MODE - Maximum speed with direct DOM manipulation
+// On server, use slightly longer waits for reliability
 const TURBO_MODE = true;
 
-const SLOW_MOTION = TURBO_MODE ? 0 : (DEBUG_MODE ? 50 : 0); // milliseconds delay between actions
+const SLOW_MOTION = TURBO_MODE ? 0 : (DEBUG_MODE ? 50 : 0);
 
-// ⚡ Wait times - Ultra short in turbo mode
-const WAIT_SHORT = TURBO_MODE ? 50 : (SPEED_MODE ? 100 : 300);
-const WAIT_MEDIUM = TURBO_MODE ? 100 : (SPEED_MODE ? 200 : 500);
-const WAIT_LONG = TURBO_MODE ? 200 : (SPEED_MODE ? 400 : 1000);
-const WAIT_PAGE_LOAD = TURBO_MODE ? 500 : (SPEED_MODE ? 800 : 2000);
+// ⚡ Wait times - Server gets slightly longer waits for reliability
+const WAIT_SHORT = IS_SERVER ? 150 : (TURBO_MODE ? 50 : 100);
+const WAIT_MEDIUM = IS_SERVER ? 300 : (TURBO_MODE ? 100 : 200);
+const WAIT_LONG = IS_SERVER ? 500 : (TURBO_MODE ? 200 : 400);
+const WAIT_PAGE_LOAD = IS_SERVER ? 1500 : (TURBO_MODE ? 500 : 800);
 
 /**
  * Log with timestamp and emoji for visibility
@@ -166,6 +168,7 @@ async function searchFlights(searchParams) {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         
         // ⚡ SPEED OPTIMIZATION: Block unnecessary resources
+        // On server, be less aggressive to ensure page works correctly
         if (SPEED_MODE) {
             await page.setRequestInterception(true);
             page.on('request', (req) => {
@@ -173,32 +176,40 @@ async function searchFlights(searchParams) {
                 const url = req.url();
                 
                 // Block images, fonts, media, and tracking scripts
-                if (
-                    resourceType === 'image' ||
-                    resourceType === 'font' ||
-                    resourceType === 'media' ||
-                    url.includes('google-analytics') ||
-                    url.includes('facebook') ||
-                    url.includes('hotjar') ||
-                    url.includes('tracking') ||
-                    url.includes('.woff') ||
-                    url.includes('.woff2')
-                ) {
+                // On server, only block images and tracking (keep fonts for Angular)
+                const shouldBlock = IS_SERVER 
+                    ? (resourceType === 'image' || 
+                       resourceType === 'media' ||
+                       url.includes('google-analytics') ||
+                       url.includes('facebook') ||
+                       url.includes('hotjar'))
+                    : (resourceType === 'image' ||
+                       resourceType === 'font' ||
+                       resourceType === 'media' ||
+                       url.includes('google-analytics') ||
+                       url.includes('facebook') ||
+                       url.includes('hotjar') ||
+                       url.includes('tracking') ||
+                       url.includes('.woff') ||
+                       url.includes('.woff2'));
+                
+                if (shouldBlock) {
                     req.abort();
                 } else {
                     req.continue();
                 }
             });
-            log('⚡', 'Speed mode: Blocking images, fonts, and tracking scripts');
+            log('⚡', `Speed mode: Blocking resources (${IS_SERVER ? 'server-safe' : 'aggressive'})`);
         }
         
         // ========================================
         // STEP 1: Navigate to prishtinaticket.net
         // ========================================
         log('📍', 'Navigating to prishtinaticket.net/en ...');
+        // Server uses networkidle0 for reliability, local uses domcontentloaded for speed
         await page.goto('https://www.prishtinaticket.net/en', { 
-            waitUntil: SPEED_MODE ? 'domcontentloaded' : 'networkidle2', 
-            timeout: 30000 
+            waitUntil: IS_SERVER ? 'networkidle0' : 'domcontentloaded', 
+            timeout: IS_SERVER ? 45000 : 30000 
         });
         log('✅', 'Page loaded!');
         
@@ -728,16 +739,20 @@ async function searchFlights(searchParams) {
         // ========================================
         log('⏳', 'Waiting for flight results...');
         
-        // 🚀 TURBO: Smart wait - wait for actual results instead of fixed time
+        // 🚀 Smart wait - wait for actual results instead of fixed time
+        // Server needs longer timeout due to network latency
+        const resultsTimeout = IS_SERVER ? 15000 : (TURBO_MODE ? 6000 : 15000);
         try {
-            await page.waitForSelector('lib-modern-flight-availability, .flight-card, .flight-result, .no-flights', { 
-                timeout: TURBO_MODE ? 6000 : 15000 
+            log('⏳', `Waiting for results (max ${resultsTimeout/1000}s)...`);
+            await page.waitForSelector('lib-modern-flight-availability, .flight-card, .flight-result, .no-flights, .mat-tab-body-content', { 
+                timeout: resultsTimeout 
             });
-            log('✅', 'Flight results loaded!');
-            await wait(WAIT_MEDIUM); // Small buffer for rendering
+            log('✅', 'Flight results container found!');
+            await wait(IS_SERVER ? 1000 : WAIT_MEDIUM); // Buffer for rendering
         } catch (e) {
-            log('⚠️', 'Timeout waiting for results, continuing anyway...');
-            await wait(TURBO_MODE ? 2000 : 5000);
+            log('⚠️', 'Timeout waiting for results selector, trying fallback...');
+            // Fallback: just wait a bit longer on server
+            await wait(IS_SERVER ? 5000 : 2000);
         }
         
         // ========================================
