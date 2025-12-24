@@ -65,10 +65,10 @@ const cityNames = {
 };
 
 // ========================================
-// DEBUG MODE - Set to true to see browser
+// DEBUG MODE - Set to true to see browser (only works locally, not on server)
 // ========================================
-const DEBUG_MODE = true;
-const SLOW_MOTION = 150; // milliseconds delay between actions
+const DEBUG_MODE = process.env.NODE_ENV !== 'production'; // Auto-detect: false on server, true locally
+const SLOW_MOTION = DEBUG_MODE ? 150 : 0; // milliseconds delay between actions
 
 /**
  * Log with timestamp and emoji for visibility
@@ -120,15 +120,18 @@ async function searchFlights(searchParams) {
     
     let browser;
     try {
-        // Launch browser in VISIBLE mode
-        log('🚀', 'Launching browser in VISIBLE mode...');
+        // Launch browser (headless on server, visible locally)
+        log('🚀', `Launching browser in ${DEBUG_MODE ? 'VISIBLE' : 'HEADLESS'} mode...`);
         browser = await puppeteer.launch({
             headless: DEBUG_MODE ? false : 'new',
-            slowMo: DEBUG_MODE ? SLOW_MOTION : 0,
+            slowMo: SLOW_MOTION,
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, // Use system Chrome if specified
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-software-rasterizer',
                 '--window-size=1400,900',
                 '--window-position=100,100'
             ],
@@ -840,11 +843,11 @@ async function searchFlights(searchParams) {
             console.log(`   ${i + 1}. ${f.departureTime} → ${f.arrivalTime} | ${f.duration} | CHF ${f.price}`);
         });
         
-        // Keep browser open in debug mode
+        // Keep browser open in debug mode (only locally)
         if (DEBUG_MODE) {
-            log('👀', 'DEBUG: Browser stays open for 30 seconds...');
+            log('👀', 'DEBUG: Browser stays open for 10 seconds...');
             log('👀', 'Blue = Outbound | Green = Return');
-            await wait(30000);
+            await wait(10000);
         }
         
         return {
