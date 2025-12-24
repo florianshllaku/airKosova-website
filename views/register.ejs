@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regjistrimi - AirKosova</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .register-page {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .register-header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .register-header .logo-img {
+            height: 50px;
+        }
+        
+        .back-link {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        
+        .back-link:hover {
+            opacity: 1;
+        }
+        
+        .register-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .register-container {
+            display: flex;
+            gap: 3rem;
+            max-width: 1100px;
+            width: 100%;
+        }
+        
+        .booking-summary {
+            flex: 0 0 350px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            color: white;
+            height: fit-content;
+            position: sticky;
+            top: 2rem;
+        }
+        
+        .booking-summary h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .flight-summary {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .flight-summary .route {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
+        }
+        
+        .flight-summary .route .city .code {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #ffd700;
+        }
+        
+        .flight-summary .route .city .name {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .flight-summary .route .arrow {
+            flex: 1;
+            text-align: center;
+            color: #ffd700;
+            font-size: 0.9rem;
+        }
+        
+        .flight-summary .time-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        .price-summary {
+            background: linear-gradient(135deg, #ffd700, #ff9500);
+            color: #1a1a2e;
+            border-radius: 12px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+        
+        .price-summary .label {
+            font-size: 0.85rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .price-summary .amount {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .register-card {
+            flex: 1;
+            background: white;
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .register-card h2 {
+            font-size: 1.5rem;
+            color: #1a1a2e;
+            margin-bottom: 0.5rem;
+        }
+        
+        .register-card .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+            flex: 1;
+        }
+        
+        .form-group.small {
+            flex: 0 0 120px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.9rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #0f3460;
+            box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1);
+        }
+        
+        .form-group input.error,
+        .form-group select.error {
+            border-color: #e74c3c;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            color: #0f3460;
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .terms {
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .terms label {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+        
+        .terms input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+        }
+        
+        .terms a {
+            color: #0f3460;
+        }
+        
+        .login-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #666;
+        }
+        
+        .login-link a {
+            color: #0f3460;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .register-footer {
+            text-align: center;
+            padding: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 900px) {
+            .register-container {
+                flex-direction: column;
+            }
+            
+            .booking-summary {
+                flex: 1;
+                position: static;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+            
+            .form-group.small {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body class="register-page">
+    <!-- Header -->
+    <header class="register-header">
+        <a href="/" class="logo">
+            <img src="/images/airkosova_logo.png" alt="AirKosova" class="logo-img">
+        </a>
+        <a href="/auth" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Kthehu
+        </a>
+    </header>
+
+    <!-- Main Content -->
+    <main class="register-main">
+        <div class="register-container">
+            <!-- Booking Summary -->
+            <div class="booking-summary">
+                <h2><i class="fas fa-plane"></i> Rezervimi</h2>
+                
+                <div class="flight-summary" id="outboundSummary">
+                    <div class="route">
+                        <div class="city">
+                            <div class="code" id="outFromCode">PRN</div>
+                            <div class="name" id="outFromName">Prishtina</div>
+                        </div>
+                        <div class="arrow">
+                            <i class="fas fa-plane"></i>
+                        </div>
+                        <div class="city">
+                            <div class="code" id="outToCode">BSL</div>
+                            <div class="name" id="outToName">Basel</div>
+                        </div>
+                    </div>
+                    <div class="time-info">
+                        <span id="outTime">-</span>
+                        <span id="outPrice">CHF -</span>
+                    </div>
+                </div>
+                
+                <div class="flight-summary" id="returnSummary" style="display: none;">
+                    <div class="route">
+                        <div class="city">
+                            <div class="code" id="retFromCode">BSL</div>
+                            <div class="name" id="retFromName">Basel</div>
+                        </div>
+                        <div class="arrow">
+                            <i class="fas fa-plane"></i>
+                        </div>
+                        <div class="city">
+                            <div class="code" id="retToCode">PRN</div>
+                            <div class="name" id="retToName">Prishtina</div>
+                        </div>
+                    </div>
+                    <div class="time-info">
+                        <span id="retTime">-</span>
+                        <span id="retPrice">CHF -</span>
+                    </div>
+                </div>
+                
+                <div class="price-summary">
+                    <div class="label">Totali</div>
+                    <div class="amount" id="totalPrice">CHF 0.00</div>
+                </div>
+            </div>
+            
+            <!-- Register Card -->
+            <div class="register-card">
+                <h2>Regjistrimi</h2>
+                <p class="subtitle">Plotësoni të dhënat tuaja për të vazhduar</p>
+                
+                <form id="registerForm">
+                    <!-- Contact Info -->
+                    <h3 class="section-title"><i class="fas fa-phone"></i> Informacioni i Kontaktit</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group small">
+                            <label for="phonePrefix">Prefix</label>
+                            <select id="phonePrefix" name="phonePrefix" required>
+                                <option value="+383">+383</option>
+                                <option value="+355">+355</option>
+                                <option value="+49">+49</option>
+                                <option value="+41">+41</option>
+                                <option value="+43">+43</option>
+                                <option value="+39">+39</option>
+                                <option value="+33">+33</option>
+                                <option value="+44">+44</option>
+                                <option value="+46">+46</option>
+                                <option value="+47">+47</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="phoneNumber">Numri i Telefonit</label>
+                            <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="44 123 456" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="email@shembull.com" required>
+                        <div class="error-message" id="emailError">Email-i nuk është i vlefshëm</div>
+                    </div>
+                    
+                    <!-- Personal Info -->
+                    <h3 class="section-title"><i class="fas fa-user"></i> Të Dhënat Personale</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group small">
+                            <label for="salutation">Thirrja</label>
+                            <select id="salutation" name="salutation" required>
+                                <option value="mr">Z.</option>
+                                <option value="mrs">Znj.</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="firstName">Emri</label>
+                            <input type="text" id="firstName" name="firstName" placeholder="Emri juaj" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName">Mbiemri</label>
+                            <input type="text" id="lastName" name="lastName" placeholder="Mbiemri juaj" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Password -->
+                    <h3 class="section-title"><i class="fas fa-lock"></i> Fjalëkalimi</h3>
+                    
+                    <div class="form-group">
+                        <label for="password">Fjalëkalimi</label>
+                        <input type="password" id="password" name="password" placeholder="Minimum 8 karaktere" required minlength="8">
+                        <div class="error-message" id="passwordError">Fjalëkalimi duhet të ketë minimum 8 karaktere</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmPassword">Konfirmo Fjalëkalimin</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Përsëritni fjalëkalimin" required>
+                        <div class="error-message" id="confirmPasswordError">Fjalëkalimet nuk përputhen</div>
+                    </div>
+                    
+                    <!-- Terms -->
+                    <div class="terms">
+                        <label>
+                            <input type="checkbox" id="terms" name="terms" required>
+                            <span>Pajtohem me <a href="/terms" target="_blank">Kushtet dhe Termat</a> e përgjithshme</span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary" id="registerBtn">
+                        <i class="fas fa-user-plus"></i>
+                        Regjistrohu dhe Vazhdo
+                    </button>
+                    
+                    <div class="error-message" id="registerError" style="text-align: center; margin-top: 1rem;"></div>
+                </form>
+                
+                <div class="login-link">
+                    Keni llogari? <a href="/auth">Hyni këtu</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="register-footer">
+        <p>© 2025 AirKosova - Të gjitha të drejtat e rezervuara</p>
+    </footer>
+
+    <script>
+        // Get booking data from session storage
+        const bookingData = JSON.parse(sessionStorage.getItem('bookingData') || '{}');
+        
+        // City codes
+        const cities = <%- JSON.stringify(cities) %>;
+        
+        // Populate booking summary
+        function populateSummary() {
+            if (!bookingData.outbound) return;
+            
+            const fromCode = cities[bookingData.departure] || 'PRN';
+            const toCode = cities[bookingData.destination] || 'BSL';
+            
+            document.getElementById('outFromCode').textContent = fromCode;
+            document.getElementById('outFromName').textContent = bookingData.departure;
+            document.getElementById('outToCode').textContent = toCode;
+            document.getElementById('outToName').textContent = bookingData.destination;
+            document.getElementById('outTime').textContent = bookingData.outbound.time || '-';
+            document.getElementById('outPrice').textContent = `CHF ${bookingData.outbound.price || '0'}`;
+            
+            if (bookingData.return && bookingData.tripType === 'roundtrip') {
+                document.getElementById('returnSummary').style.display = 'block';
+                document.getElementById('retFromCode').textContent = toCode;
+                document.getElementById('retFromName').textContent = bookingData.destination;
+                document.getElementById('retToCode').textContent = fromCode;
+                document.getElementById('retToName').textContent = bookingData.departure;
+                document.getElementById('retTime').textContent = bookingData.return.time || '-';
+                document.getElementById('retPrice').textContent = `CHF ${bookingData.return.price || '0'}`;
+            }
+            
+            const outPrice = parseFloat(bookingData.outbound.price) || 0;
+            const retPrice = parseFloat(bookingData.return?.price) || 0;
+            document.getElementById('totalPrice').textContent = `CHF ${(outPrice + retPrice).toFixed(2)}`;
+        }
+        
+        // Form validation and submission
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Reset errors
+            document.querySelectorAll('.error-message').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
+            
+            const formData = {
+                phonePrefix: document.getElementById('phonePrefix').value,
+                phoneNumber: document.getElementById('phoneNumber').value,
+                email: document.getElementById('email').value,
+                salutation: document.getElementById('salutation').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                password: document.getElementById('password').value,
+                confirmPassword: document.getElementById('confirmPassword').value
+            };
+            
+            // Validate email
+            if (!/\S+@\S+\.\S+/.test(formData.email)) {
+                document.getElementById('email').classList.add('error');
+                document.getElementById('emailError').classList.add('show');
+                return;
+            }
+            
+            // Validate password
+            if (formData.password.length < 8) {
+                document.getElementById('password').classList.add('error');
+                document.getElementById('passwordError').classList.add('show');
+                return;
+            }
+            
+            // Validate password match
+            if (formData.password !== formData.confirmPassword) {
+                document.getElementById('confirmPassword').classList.add('error');
+                document.getElementById('confirmPasswordError').classList.add('show');
+                return;
+            }
+            
+            // Check terms
+            if (!document.getElementById('terms').checked) {
+                alert('Ju lutemi pranoni kushtet dhe termat');
+                return;
+            }
+            
+            const registerBtn = document.getElementById('registerBtn');
+            const registerError = document.getElementById('registerError');
+            
+            registerBtn.disabled = true;
+            registerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Duke u regjistruar...';
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Store user session
+                    sessionStorage.setItem('user', JSON.stringify(data.user));
+                    // Redirect to passenger details
+                    window.location.href = '/booking/passengers';
+                } else {
+                    registerError.textContent = data.message || 'Ndodhi një gabim gjatë regjistrimit';
+                    registerError.classList.add('show');
+                }
+            } catch (error) {
+                registerError.textContent = 'Ndodhi një gabim. Ju lutemi provoni përsëri.';
+                registerError.classList.add('show');
+            } finally {
+                registerBtn.disabled = false;
+                registerBtn.innerHTML = '<i class="fas fa-user-plus"></i> Regjistrohu dhe Vazhdo';
+            }
+        });
+        
+        // Initialize
+        populateSummary();
+    </script>
+</body>
+</html>
+
+
+
+
+

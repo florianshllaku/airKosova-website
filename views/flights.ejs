@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rezultatet e Fluturimeve - AirKosova</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/flights.css">
+</head>
+<body class="flights-page">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <a href="tel:+38338660880"><i class="fas fa-phone"></i> +383 38 660 880</a>
+            <a href="mailto:info@airkosova.net"><i class="fas fa-envelope"></i> info@airkosova.net</a>
+        </div>
+        <div class="top-bar-right">
+            <div class="language-selector">
+                <i class="fas fa-globe"></i>
+                <span>AL</span>
+                <span>DE</span>
+                <span>EN</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="flights-header">
+        <nav class="main-nav">
+            <a href="/" class="logo">
+                <img src="/images/airkosova_logo.png" alt="AirKosova" class="logo-img">
+            </a>
+            <div class="nav-links">
+                <a href="/"><i class="fas fa-home"></i></a>
+                <a href="#"><i class="fas fa-plane"></i> REZERVO</a>
+                <a href="/contact">KONTAKT</a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Search Summary -->
+    <div class="search-summary">
+        <div class="search-summary-content">
+            <div class="route-info">
+                <div class="city from">
+                    <span class="city-name" id="fromCity">—</span>
+                    <span class="city-code" id="fromCode">—</span>
+                </div>
+                <div class="route-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="city to">
+                    <span class="city-name" id="toCity">—</span>
+                    <span class="city-code" id="toCode">—</span>
+                </div>
+            </div>
+            <div class="search-details">
+                <span><i class="fas fa-calendar"></i> <span id="dateRange">—</span></span>
+                <span><i class="fas fa-user"></i> <span id="passengers">—</span></span>
+            </div>
+            <button class="modify-search-btn" onclick="window.location.href='/'">
+                <i class="fas fa-search"></i> Kërkim i ri
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flights-main">
+        <!-- Loading State -->
+        <div class="loading-state" id="loadingState">
+            <div class="loader">
+                <div class="plane-animation">
+                    <i class="fas fa-plane fa-2x"></i>
+                </div>
+                <div class="loader-text">Duke kërkuar fluturime...</div>
+                <div class="loader-subtext">Po kontrollojmë oraret dhe çmimet</div>
+                <div class="loader-progress">
+                    <div class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flight Results -->
+        <div class="flights-results" id="flightsResults" style="display: none;">
+            
+            <!-- Outbound Flights Section -->
+            <section class="flight-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-plane-departure"></i> Fluturimi i Nisjes</h2>
+                    <span class="route-label" id="outboundRouteLabel">PRN → BSL</span>
+                </div>
+                <div class="flight-cards" id="outboundFlights">
+                    <!-- Flight cards will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Return Flights Section -->
+            <section class="flight-section" id="returnSection">
+                <div class="section-header">
+                    <h2><i class="fas fa-plane-arrival"></i> Fluturimi i Kthimit</h2>
+                    <span class="route-label" id="returnRouteLabel">BSL → PRN</span>
+                </div>
+                <div class="flight-cards" id="returnFlights">
+                    <!-- Flight cards will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Booking Summary Bar -->
+            <div class="booking-bar">
+                <div class="booking-bar-content">
+                    <div class="selection-summary">
+                        <div class="selected-flight outbound">
+                            <span class="label"><i class="fas fa-plane-departure"></i> Nisja</span>
+                            <span class="value" id="selectedOutbound">Zgjidhni fluturimin</span>
+                        </div>
+                        <div class="selected-flight return">
+                            <span class="label"><i class="fas fa-plane-arrival"></i> Kthimi</span>
+                            <span class="value" id="selectedReturn">Zgjidhni fluturimin</span>
+                        </div>
+                    </div>
+                    <div class="total-section">
+                        <div class="total-label">Totali</div>
+                        <div class="total-amount" id="totalPrice">CHF 0.00</div>
+                    </div>
+                    <button id="bookNowBtn" class="book-btn">
+                        Rezervo Tani <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="flights-footer">
+        <p>© 2025 AirKosova</p>
+    </footer>
+
+    <script>
+        // Get search params from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchParams = {
+            departure: urlParams.get('departure') || 'Prishtina',
+            destination: urlParams.get('destination') || 'Basel',
+            departureDate: urlParams.get('departureDate') || '',
+            returnDate: urlParams.get('returnDate') || '',
+            adults: urlParams.get('adults') || '1',
+            children: urlParams.get('children') || '0',
+            infants: urlParams.get('infants') || '0',
+            tripType: urlParams.get('tripType') || 'roundtrip'
+        };
+
+        // City codes
+        const cities = <%- JSON.stringify(cities) %>;
+        
+        // Selection state
+        let selectedOutbound = null;
+        let selectedReturn = null;
+
+        // Format date for display
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('sq-AL', { weekday: 'short', day: '2-digit', month: 'short' });
+        }
+
+        // Update page header
+        function updateHeader() {
+            const fromCode = cities[searchParams.departure] || 'PRN';
+            const toCode = cities[searchParams.destination] || 'BSL';
+            
+            document.getElementById('fromCity').textContent = searchParams.departure;
+            document.getElementById('fromCode').textContent = fromCode;
+            document.getElementById('toCity').textContent = searchParams.destination;
+            document.getElementById('toCode').textContent = toCode;
+            
+            const dateFrom = formatDate(searchParams.departureDate);
+            const dateTo = formatDate(searchParams.returnDate);
+            document.getElementById('dateRange').textContent = dateTo !== '—' ? `${dateFrom} — ${dateTo}` : dateFrom;
+            
+            const total = parseInt(searchParams.adults) + parseInt(searchParams.children) + parseInt(searchParams.infants);
+            document.getElementById('passengers').textContent = `${total} Pasagjer${total > 1 ? 'ë' : ''}`;
+            
+            document.getElementById('outboundRouteLabel').textContent = `${fromCode} → ${toCode}`;
+            document.getElementById('returnRouteLabel').textContent = `${toCode} → ${fromCode}`;
+            
+            // Hide return section for one-way
+            if (searchParams.tripType === 'oneway') {
+                document.getElementById('returnSection').style.display = 'none';
+            }
+        }
+
+        // Create flight card HTML
+        function createFlightCard(flight, type, index) {
+            return `
+                <div class="flight-card" data-type="${type}" data-index="${index}" data-price="${flight.price}" data-time="${flight.departureTime}">
+                    <div class="flight-main">
+                        <div class="flight-time departure">
+                            <span class="time">${flight.departureTime}</span>
+                            <span class="airport">${flight.fromCode}</span>
+                        </div>
+                        <div class="flight-duration">
+                            <div class="duration-line">
+                                <span class="dot"></span>
+                                <span class="line"></span>
+                                <i class="fas fa-plane"></i>
+                                <span class="line"></span>
+                                <span class="dot"></span>
+                            </div>
+                            <span class="duration-text">${flight.duration}</span>
+                            <span class="direct-badge">Direct</span>
+                        </div>
+                        <div class="flight-time arrival">
+                            <span class="time">${flight.arrivalTime}</span>
+                            <span class="airport">${flight.toCode}</span>
+                        </div>
+                    </div>
+                    <div class="flight-price-section">
+                        <div class="price">
+                            <span class="currency">${flight.currency}</span>
+                            <span class="amount">${flight.price}</span>
+                        </div>
+                        <button class="select-btn" onclick="selectFlight('${type}', ${index}, '${flight.price}', '${flight.departureTime}', '${flight.arrivalTime}')">
+                            Zgjidh
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Select a flight
+        function selectFlight(type, index, price, depTime, arrTime) {
+            // Remove previous selection of this type
+            document.querySelectorAll(`.flight-card[data-type="${type}"]`).forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Select this card
+            const card = document.querySelector(`.flight-card[data-type="${type}"][data-index="${index}"]`);
+            if (card) {
+                card.classList.add('selected');
+            }
+            
+            // Update selection state
+            const flightInfo = `${depTime} → ${arrTime} (CHF ${price})`;
+            
+            if (type === 'outbound') {
+                selectedOutbound = { price: parseFloat(price), info: flightInfo };
+                document.getElementById('selectedOutbound').textContent = flightInfo;
+            } else {
+                selectedReturn = { price: parseFloat(price), info: flightInfo };
+                document.getElementById('selectedReturn').textContent = flightInfo;
+            }
+            
+            // Update total
+            updateTotal();
+        }
+
+        // Update total price
+        function updateTotal() {
+            const outboundPrice = selectedOutbound ? selectedOutbound.price : 0;
+            const returnPrice = selectedReturn ? selectedReturn.price : 0;
+            const total = outboundPrice + returnPrice;
+            document.getElementById('totalPrice').textContent = `CHF ${total.toFixed(2)}`;
+        }
+
+        // Render flights
+        function renderFlights(data) {
+            const outboundContainer = document.getElementById('outboundFlights');
+            const returnContainer = document.getElementById('returnFlights');
+            
+            // Get airport codes for display
+            const fromCode = cities[searchParams.departure] || 'PRN';
+            const toCode = cities[searchParams.destination] || 'BSL';
+            
+            // Render outbound flights
+            if (data.flights && data.flights.outbound && data.flights.outbound.flights && data.flights.outbound.flights.length > 0) {
+                // Filter out flights with 0 price
+                const validFlights = data.flights.outbound.flights.filter(f => {
+                    const price = parseFloat(f.price);
+                    return !isNaN(price) && price > 0;
+                });
+                
+                if (validFlights.length > 0) {
+                    const outboundFlights = validFlights.map(f => ({
+                        ...f,
+                        fromCode: f.fromCode || fromCode,
+                        toCode: f.toCode || toCode
+                    }));
+                    outboundContainer.innerHTML = outboundFlights
+                        .map((f, i) => createFlightCard(f, 'outbound', i))
+                        .join('');
+                } else {
+                    outboundContainer.innerHTML = `
+                        <div class="no-flights">
+                            <i class="fas fa-info-circle"></i>
+                            <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
+                        </div>
+                    `;
+                }
+            } else {
+                outboundContainer.innerHTML = `
+                    <div class="no-flights">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
+                    </div>
+                `;
+            }
+            
+            // Render return flights
+            if (searchParams.tripType === 'roundtrip') {
+                if (data.flights && data.flights.return && data.flights.return.flights && data.flights.return.flights.length > 0) {
+                    // Filter out flights with 0 price
+                    const validReturnFlights = data.flights.return.flights.filter(f => {
+                        const price = parseFloat(f.price);
+                        return !isNaN(price) && price > 0;
+                    });
+                    
+                    if (validReturnFlights.length > 0) {
+                        const returnFlights = validReturnFlights.map(f => ({
+                            ...f,
+                            fromCode: f.fromCode || toCode,
+                            toCode: f.toCode || fromCode
+                        }));
+                        returnContainer.innerHTML = returnFlights
+                            .map((f, i) => createFlightCard(f, 'return', i))
+                            .join('');
+                    } else {
+                        returnContainer.innerHTML = `
+                            <div class="no-flights">
+                                <i class="fas fa-info-circle"></i>
+                                <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    returnContainer.innerHTML = `
+                        <div class="no-flights">
+                            <i class="fas fa-info-circle"></i>
+                            <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Search flights
+        async function searchFlights() {
+            updateHeader();
+            
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(searchParams)
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('flightsResults').style.display = 'block';
+                
+                renderFlights(data);
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('flightsResults').style.display = 'block';
+                
+                document.getElementById('outboundFlights').innerHTML = `
+                    <div class="no-flights error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Ndodhi një gabim gjatë kërkimit. Ju lutemi provoni përsëri.</p>
+                    </div>
+                `;
+                if (searchParams.tripType === 'roundtrip') {
+                    document.getElementById('returnFlights').innerHTML = `
+                        <div class="no-flights error">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <p>Ndodhi një gabim gjatë kërkimit. Ju lutemi provoni përsëri.</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Handle booking button click
+        document.getElementById('bookNowBtn').addEventListener('click', () => {
+            if (!selectedOutbound) {
+                alert('Ju lutemi zgjidhni fluturimin e nisjes');
+                return;
+            }
+            
+            if (searchParams.tripType === 'roundtrip' && !selectedReturn) {
+                alert('Ju lutemi zgjidhni fluturimin e kthimit');
+                return;
+            }
+            
+            const bookingData = {
+                departure: searchParams.departure,
+                destination: searchParams.destination,
+                departureDate: searchParams.departureDate,
+                returnDate: searchParams.returnDate,
+                tripType: searchParams.tripType,
+                adults: searchParams.adults,
+                children: searchParams.children,
+                infants: searchParams.infants,
+                outbound: {
+                    time: selectedOutbound.info.split(' (')[0],
+                    price: selectedOutbound.price
+                }
+            };
+            
+            if (selectedReturn) {
+                bookingData.return = {
+                    time: selectedReturn.info.split(' (')[0],
+                    price: selectedReturn.price
+                };
+            }
+            
+            sessionStorage.setItem('bookingData', JSON.stringify(bookingData));
+            window.location.href = '/auth';
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateHeader();
+            searchFlights();
+        });
+    </script>
+</body>
+</html>

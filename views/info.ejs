@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirKosova - <%= pageTitle %></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .info-hero {
+            background: linear-gradient(rgba(12, 24, 41, 0.7), rgba(26, 45, 69, 0.8)),
+                        url('/images/wing-fly.png');
+            background-size: cover;
+            background-position: center;
+            padding: 120px 40px 60px;
+            text-align: center;
+        }
+        
+        .info-hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 48px;
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .info-hero p {
+            color: rgba(255,255,255,0.7);
+            font-size: 18px;
+        }
+        
+        .info-nav {
+            background: white;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .info-nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            padding: 0 20px;
+            overflow-x: auto;
+        }
+        
+        .info-nav a {
+            padding: 20px 25px;
+            color: #555;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .info-nav a:hover {
+            color: #01a9da;
+            background: rgba(1, 169, 218, 0.05);
+        }
+        
+        .info-nav a.active {
+            color: #01a9da;
+            border-bottom-color: #01a9da;
+        }
+        
+        .info-nav a i {
+            font-size: 16px;
+        }
+        
+        .info-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+        
+        .info-content h2 {
+            font-size: 32px;
+            color: #1a2a3a;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #01a9da;
+            display: inline-block;
+        }
+        
+        .info-content h3 {
+            font-size: 22px;
+            color: #1a2a3a;
+            margin: 40px 0 20px;
+        }
+        
+        .info-content p {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        
+        .info-content ul {
+            margin: 20px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        
+        .info-content ul li {
+            padding: 12px 0 12px 35px;
+            position: relative;
+            color: #555;
+            line-height: 1.6;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .info-content ul li:last-child {
+            border-bottom: none;
+        }
+        
+        .info-content ul li::before {
+            content: '\f00c';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: #01a9da;
+        }
+        
+        .info-content ul.danger-list li::before {
+            content: '\f071';
+            color: #e74c3c;
+        }
+        
+        .warning-box {
+            background: linear-gradient(135deg, #fff5f5, #ffe5e5);
+            border-left: 4px solid #e74c3c;
+            padding: 20px 25px;
+            border-radius: 0 10px 10px 0;
+            margin: 30px 0;
+        }
+        
+        .warning-box h4 {
+            color: #c0392b;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #f0fafc, #e0f5fa);
+            border-left: 4px solid #01a9da;
+            padding: 20px 25px;
+            border-radius: 0 10px 10px 0;
+            margin: 30px 0;
+        }
+        
+        .info-box h4 {
+            color: #0190ba;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #01a9da;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link:hover {
+            color: #0190ba;
+            gap: 12px;
+        }
+        
+        .pdf-downloads {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .pdf-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .pdf-link:hover {
+            background: linear-gradient(135deg, #c82333, #bd2130);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+        }
+        
+        .pdf-link i {
+            font-size: 18px;
+        }
+        
+        @media (max-width: 768px) {
+            .info-hero {
+                padding: 100px 20px 40px;
+            }
+            
+            .info-hero h1 {
+                font-size: 32px;
+            }
+            
+            .info-content {
+                padding: 40px 20px;
+            }
+            
+            .info-content h2 {
+                font-size: 26px;
+            }
+            
+            .info-nav a {
+                padding: 15px 18px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <a href="tel:+38338660880">
+                <i class="fas fa-phone"></i> +383 38 660 880 & +383 44 955 955
+            </a>
+            <a href="tel:+41435052880">
+                <i class="fas fa-phone"></i> +41 43 505 28 80
+            </a>
+            <a href="mailto:info@airkosova.net">
+                <i class="fas fa-envelope"></i> info@airkosova.net
+            </a>
+        </div>
+        <div class="top-bar-right">
+            <a href="/" class="login-btn">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <div class="language-selector">
+                <i class="fas fa-globe"></i>
+                <span data-lang="sq" class="<%= lang === 'sq' ? 'active' : '' %>">AL</span> |
+                <span data-lang="de" class="<%= lang === 'de' ? 'active' : '' %>">DE</span> |
+                <span data-lang="en" class="<%= lang === 'en' ? 'active' : '' %>">EN</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="main-nav" style="background: #1a2a3a; position: fixed; top: 40px; left: 0; right: 0; z-index: 1000;">
+        <a href="/" class="logo">
+            <img src="/images/airkosova_logo.png" alt="AirKosova" class="logo-img">
+        </a>
+        <div class="nav-links">
+            <a href="/"><i class="fas fa-home"></i></a>
+            <a href="/#booking"><i class="fas fa-plane"></i> REZERVO</a>
+            <div class="nav-dropdown">
+                <a href="#" class="dropdown-trigger active">INFORMACIONE <i class="fas fa-chevron-down"></i></a>
+                <div class="dropdown-menu">
+                    <a href="/info/siguria" class="<%= section === 'siguria' ? 'active' : '' %>"><i class="fas fa-shield-alt"></i> Siguria</a>
+                    <a href="/info/para-udhetimit" class="<%= section === 'para-udhetimit' ? 'active' : '' %>"><i class="fas fa-clipboard-check"></i> Para Udhëtimit</a>
+                    <a href="/info/e-biletat" class="<%= section === 'e-biletat' ? 'active' : '' %>"><i class="fas fa-ticket-alt"></i> E-Biletat</a>
+                    <a href="/info/bagazhi" class="<%= section === 'bagazhi' ? 'active' : '' %>"><i class="fas fa-suitcase-rolling"></i> Bagazhi</a>
+                    <a href="/info/shendeti" class="<%= section === 'shendeti' ? 'active' : '' %>"><i class="fas fa-heartbeat"></i> Shëndeti</a>
+                </div>
+            </div>
+            <a href="/#contact">KONTAKT</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="info-hero">
+        <h1><%= pageTitle %></h1>
+        <p>Informacione të rëndësishme për udhëtimin tuaj</p>
+    </section>
+
+    <!-- Info Navigation -->
+    <nav class="info-nav">
+        <div class="info-nav-container">
+            <a href="/info/siguria" class="<%= section === 'siguria' ? 'active' : '' %>">
+                <i class="fas fa-shield-alt"></i> Siguria
+            </a>
+            <a href="/info/para-udhetimit" class="<%= section === 'para-udhetimit' ? 'active' : '' %>">
+                <i class="fas fa-clipboard-check"></i> Para Udhëtimit
+            </a>
+            <a href="/info/e-biletat" class="<%= section === 'e-biletat' ? 'active' : '' %>">
+                <i class="fas fa-ticket-alt"></i> E-Biletat
+            </a>
+            <a href="/info/bagazhi" class="<%= section === 'bagazhi' ? 'active' : '' %>">
+                <i class="fas fa-suitcase-rolling"></i> Bagazhi
+            </a>
+            <a href="/info/shendeti" class="<%= section === 'shendeti' ? 'active' : '' %>">
+                <i class="fas fa-heartbeat"></i> Shëndeti
+            </a>
+        </div>
+    </nav>
+
+    <!-- Content Section -->
+    <div class="info-content">
+        <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Kthehu në faqen kryesore</a>
+
+        <% if (section === 'siguria') { %>
+            <h2>Siguria</h2>
+            
+            <div class="pdf-downloads">
+                <a href="/documents/sicherheitsbestimmungen.pdf" target="_blank" class="pdf-link">
+                    <i class="fas fa-file-pdf"></i> Vendimet e reja te Sigurisë (DE)
+                </a>
+                <a href="/documents/EU-VO_820_2008Liste-VerboteneGegenstaende.pdf" target="_blank" class="pdf-link">
+                    <i class="fas fa-file-pdf"></i> Liste me gjësende të rrezikshme (DE)
+                </a>
+            </div>
+            
+            <div class="warning-box">
+                <h4><i class="fas fa-exclamation-triangle"></i> Gjësende të rrezikshme / Dangerous Goods</h4>
+                <p>Ligjet e të gjitha vendeve e ndalojnë për shkaqe sigurie marrjen me vete të gjësendeve të mëposhtme në bagazhin e dorëzuar ose në bagazhin e dorës:</p>
+            </div>
+
+            <ul class="danger-list">
+                <li>Çanta për dokumente me sistem të montuar alarmi</li>
+                <li>Lëndë eksplozive, fishekzjarrë, pishtarë</li>
+                <li>Mbajtës gazi, për shembull gaze ngacmuese, sprei për vetëmbrojtje, zierës kampimi</li>
+                <li>Mbajtës me lëngje të ndezshme, p.sh. benzinë për shkrepëse, ngjyra, llakëra, lëndë pastruese</li>
+                <li>Lëndë që ndizen lehtë, p.sh. shkrepëse (çibritë)</li>
+                <li>Substanca të cilat në kontakt me ujin zhvillojnë gazra të ndezshëm</li>
+                <li>Lëndë oksiduese, p.sh. pluhur zbardhës, superoksid</li>
+                <li>Lëndë infektuese dhe helmuese (toksike), p.sh. zhivë, kultura bakteriale dhe virale</li>
+                <li>Lëndë dhe gjësende radioaktive</li>
+                <li>Lëndë gërryese, p.sh. acide, alkale/baza, baktere të lagështa</li>
+                <li>Materiale me cilësi të forta magnetike</li>
+                <li>Aparatura që punojnë me benzinë dhe mjete puna të cilat tashmë kanë përmbajtur sasinë më vogël të benzinës (p.sh. për qëllime testimi)</li>
+            </ul>
+
+        <% } else if (section === 'para-udhetimit') { %>
+            <h2>Para Udhëtimit</h2>
+            
+            <h3><i class="fas fa-check-circle" style="color: #01a9da;"></i> Check-In</h3>
+            <p>U rekomandohet pasagjerëve që, për fluturime me O.T.A Airkosova Network SH.P.K. mundësisht të paraqiten për përgatitje për fluturim <strong>dy orë përpara fluturimit</strong> të planifikuar, sepse sportelet mbyllen <strong>40 minuta përpara nisjes</strong>.</p>
+
+            <h3><i class="fas fa-passport" style="color: #01a9da;"></i> Dokumentet e udhëtimit</h3>
+            <p>Pasagjeri është personalisht përgjegjës që të ketë me vete dokumente të vlefshme identifikimi, të cilat u përgjigjen rregullave qe rekomandon kompania Aircompany dhe O.T.A Airkosova Network SH.P.K. si dhe rregullave për hyrje në vend të secilit cak të fluturimit.</p>
+            <p>Gjobat, dënimet me të holla, pagesat ose harxhimet e çdo lloji si pasojë e mospërfilljes së këtyre rregullave, duhet të barten nga vetë pasagjeri. Për të siguruar respektimin e rregullave, Reisebüro Prishtina GmbH rekomandon që për të gjitha fluturimet të bartet me vete <strong>pasaporta e vlefshme</strong> (dhe, nëse është e nevojshme, edhe viza e vlefshme).</p>
+
+            <h3><i class="fas fa-baby" style="color: #01a9da;"></i> Foshnjat & shoqërimi</h3>
+            <p>Në qoftë se fëmijët udhëtojnë të pashoqëruar, atëherë vlejnë rregullat ndërkombëtare për të ashtuquajturit „Unaccompanied Minors (UM)", në mënyrë që edhe pasagjerët e vegjël të mbërrijnë të sigurt në cakun e tyre.</p>
+            
+            <div class="info-box">
+                <h4><i class="fas fa-info-circle"></i> Udhëzim</h4>
+                <p style="margin-bottom: 0;">Për fëmijë të pashoqëruar nuk është e mundur të bëhet rezervimi online.</p>
+            </div>
+
+            <p><strong>Aircompany i definon fëmijët e pashoqëruar si më poshtë:</strong></p>
+            <ul>
+                <li>Fëmijë midis moshës 5 dhe 11-vjeçare; pa person shoqërues prej moshës 15-vjeçare</li>
+                <li>Fëmijë midis moshës 3 dhe 5-vjeçare; me person shoqërues midis moshës 12 deri në 15-vjeçare</li>
+                <li>Sipas dëshirës së prindërve përkujdesja mund të bëhet edhe për fëmijët midis moshës 12 dhe 18-vjeçare</li>
+            </ul>
+            <p>Rezervimi i fluturimit është i mundur të bëhet vetëm nga prindërit ose nga personi që e pret në aeroport arritjen e fëmijës. Përgatisni të gjitha dokumentet e nevojshme për udhëtim.</p>
+
+            <h3><i class="fas fa-wheelchair" style="color: #01a9da;"></i> Personat me të meta</h3>
+            <p>Në aeroport ose në bord – Aircompany i mbështet njerëzit me të meta me shumë shërbime dhe shërbime ndihmëse, varësisht nga situata. Në aeroportet e Zürich-ut dhe të Prishtinës për pasagjerët me të meta kujdeset personeli i shkolluar posaçërisht për këtë punë.</p>
+            <p>Në shumicën e aeroporteve ju ofrojmë karroca invalidësh dhe mjete transporti me personel shoqërues, për nisje dhe mbërritje. Në aeroplanët tanë mund të hiqen mbështetëset për duar.</p>
+            
+            <div class="info-box">
+                <h4><i class="fas fa-clock"></i> Rekomandim</h4>
+                <p style="margin-bottom: 0;">Ju rekomandojmë pasagjerëve me karrocë invalidësh që të lajmërohen në sportelin Check-In <strong>120 minuta para fluturimit</strong>.</p>
+            </div>
+
+        <% } else if (section === 'e-biletat') { %>
+            <h2>E-Biletat</h2>
+            <h3>Biletat Elektronike të Fluturimit</h3>
+            
+            <p>Një biletë elektronike, shkurt E-Biletë, është një biletë që mund të përdoret si zëvendësim elektronik për biletat prej letre. 92 përqind e të gjitha biletave të fluturimit të lëshuara në mbarë botën ishin elektronike sipas një vlerësimi të Shoqatës Ndërkombëtare të Transportit Ajror në dhjetor 2007.</p>
+            
+            <div class="info-box">
+                <h4><i class="fas fa-plane"></i> E-Biletat në AirKosova</h4>
+                <p style="margin-bottom: 0;">Sigurisht që edhe në O.T.A Airkosova Network SH.P.K. mund të fluturoni me E-Bileta!</p>
+            </div>
+
+            <h3>Tek ne fluturimi pa letër me E-Biletë funksionon thjesht:</h3>
+            <p>Ju rezervoni përmes telefonit ose online përmes internetit, qoftë drejtpërdrejt në O.T.A Airkosova Network SH.P.K. ose në zyrat tona të udhëtimit. Gjatë blerjes së një E-Bilete, identiteti juaj dhe të dhënat tuaja (të udhëtimit) regjistrohen. Numrin tuaj të rezervimit e merrni ose me telefon ose me shkrim përmes postës, faksit ose emailit.</p>
+
+            <h3>Për ju, biletat virtuale të fluturimit ofrojnë një sërë përparësish:</h3>
+            <ul>
+                <li>Nuk mund t'i humbni biletat tuaja, as nuk mund t'ju vidhen.</li>
+                <li>Ndryshimet e rezervimit mund të bëhen më shpejt – mjafton një telefonatë.</li>
+                <li>Përveç kësaj, nëse nuk keni bagazh për të dorëzuar, mund të shmangni radhët në sportel të Check-in.</li>
+                <li>Gjatë përdorimit të biletës duhet të vërtetoni identitetin tuaj, për shembull me anë të pasaportës tuaj.</li>
+            </ul>
+
+        <% } else if (section === 'bagazhi') { %>
+            <h2>Bagazhi</h2>
+            
+            <h3><i class="fas fa-suitcase" style="color: #01a9da;"></i> Bagazhi i pataksuar</h3>
+            <p>Kufiri i bagazhit të pataksuar për bagazhin e dorëzuar është <strong>20 kg për pasagjer</strong>. Edhe fëmijët kanë të drejtë të kenë këtë peshë bagazhi. Ju rekomandojmë që të mos dorëzoni bagazhe të veçanta, të cilat kanë peshë më të rëndë se 32 kg.</p>
+
+            <h3><i class="fas fa-weight-hanging" style="color: #01a9da;"></i> Mbipesha e bagazhit</h3>
+            <p>Transportimi i bagazhit, i cili për nga pesha i tejkalon kufijtë e përcaktuar të bagazhit të pataksuar, bëhet me pagesë.</p>
+
+            <h3><i class="fas fa-briefcase" style="color: #01a9da;"></i> Bagazhi i dorës</h3>
+            <p>Për shkaqe sigurie si dhe për shkak të rehatisë, në kabinë lejohet të merret vetëm një copë bagazhi dore për person.</p>
+            
+            <div class="info-box">
+                <h4><i class="fas fa-ruler-combined"></i> Specifikimet</h4>
+                <ul style="margin-bottom: 0;">
+                    <li>Pesha maksimale: <strong>6 kg</strong> (8 kg për laptop)</li>
+                    <li>Përmasat maksimale: <strong>55 cm x 40 cm x 20 cm</strong></li>
+                </ul>
+            </div>
+
+            <p>Është e këshillueshme që në bagazhin e dorës të transportohen gjësendet me vlerë, medikamentet si dhe gjësendet që prishen lehtë ose që thyhen. Nga ana tjetër vlejnë udhëzimet rreth kufizimeve të përgjegjësisë, të renditura në vërtetimin e rezervimit të biletës.</p>
+
+            <h3><i class="fas fa-euro-sign" style="color: #01a9da;"></i> Tarifa e mbipeshës së bagazhit</h3>
+            <p>Pesha më e lartë e lejuar e bagazhit tuaj të udhëtimit është e shënuar në biletën tuaj të fluturimit. Tejkalimet e këtyre limiteve konsiderohen si mbipeshë bagazhi. Në rast të këtillë, struktura tarifore kërkon një çmim shtesë. Ky çmim shtesë përcaktohet varësisht nga situata e konceptit të peshës apo numrit të pjesëve të bagazhit.</p>
+
+        <% } else if (section === 'shendeti') { %>
+            <h2>Shëndeti</h2>
+            
+            <h3><i class="fas fa-baby-carriage" style="color: #01a9da;"></i> Nënat që presin të lindin</h3>
+            <p>Deri në javën e 29-të të shtatzënisë, nënat që presin të lindin dhe që kanë rrjedhë të pakomplikuar të shtatzënisë, mund të udhëtojnë pa vërtetim gjinekologjik në ne fluturimet qe organizon O.T.A Airkosova Network SH.P.K.</p>
+            <p>Leja e posaçme për fluturim pas javës 29-të shtatzënisë mund të merret vetëm nga mjeku i shtëpisë ose nga shërbim i ngjajshem mjekësor. E njëjta gjë vlen në rast shtatzënie të komplikuar, si p.sh. në rast se nëna është shtatzënë me binjakë apo me më shumë fëmijë.</p>
+
+            <h3><i class="fas fa-pills" style="color: #01a9da;"></i> Medikamentet</h3>
+            <p><strong>Me medikamente nëpër doganë:</strong> Nëse bartni në bagazhin e dorës medikamente dhe injeksione (injeksione insuline), është e këshillueshme të bartet me vete edhe një vërtetim mjeku, i cili vërteton që bëhet fjalë për material mjekësor që ju nevojitet personalisht.</p>
+            
+            <div class="warning-box">
+                <h4><i class="fas fa-exclamation-triangle"></i> Humbja e medikamenteve</h4>
+                <p style="margin-bottom: 0;">Për rastin që nëse ju humbin medikamentet gjatë rrugës ose në vendin e cakut, do të duhej të kërkonit nga mjeku që ju trajton që t'ua lëshojë një pasqyrë mbi grupin e gjakut tuaj dhe të dhënat tjera të rëndësishme medicinale, si dhe mbi dozimin e medikamenteve dhe emrat e tyre të gjenerikave.</p>
+            </div>
+
+            <h3><i class="fas fa-medkit" style="color: #01a9da;"></i> Medikamentet në bagazhin e dorës</h3>
+            <p>Paketimi i medikamenteve do të duhej t'i përballonte goditjet dhe, sipas mundësisë, sasia e medikamenteve të shpërndahet nëpër disa bagazhe dore.</p>
+            
+            <div class="info-box">
+                <h4><i class="fas fa-lightbulb"></i> Këshillë</h4>
+                <p style="margin-bottom: 0;">Është e këshillueshme që të bartni në bagazhin e dorës <strong>një herë e gjysmë deri në dy herë më shumë medikamente</strong> sesa nevoja e pritshme për to. Sepse, në raste të jashtëzakonshme, fluturimeve nganjëherë u ndërrohet drejtimi ose nisja juaj shtyhet për një kohë më të gjatë.</p>
+            </div>
+
+        <% } %>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <a href="/" class="footer-logo">
+                    <img src="/images/airkosova_logo.png" alt="AirKosova" class="footer-logo-img">
+                </a>
+                <p class="footer-tagline">Fluturime të sigurta dhe të përballueshme</p>
+            </div>
+
+            <div class="footer-section">
+                <h4>Contact - Prishtina</h4>
+                <ul>
+                    <li><i class="fas fa-map-marker-alt"></i> Bulevardi Bill Klinton 12, 10000 Prishtinë</li>
+                    <li><a href="tel:+38344955955"><i class="fas fa-phone"></i> +383 44 955 955</a></li>
+                    <li><a href="tel:+41435052880"><i class="fas fa-phone"></i> +41 43 505 28 80</a></li>
+                    <li><a href="mailto:info@airkosova.net"><i class="fas fa-envelope"></i> info@airkosova.net</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Contact - London</h4>
+                <ul>
+                    <li><i class="fas fa-map-marker-alt"></i> 71-75 Shelton Street, Covent Garden, London, WC2H 9JQ UK</li>
+                    <li><a href="mailto:info@airkosova.net"><i class="fas fa-envelope"></i> info@airkosova.net</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Pagesat</h4>
+                <div class="payment-methods">
+                    <div class="payment-icon visa-icon">VISA</div>
+                    <div class="payment-icon mastercard-icon">
+                        <div class="mc-circles">
+                            <span class="mc-red"></span>
+                            <span class="mc-orange"></span>
+                        </div>
+                    </div>
+                    <div class="payment-icon euro-icon">€</div>
+                </div>
+                
+                <h4 class="mt-20">Gjuhët</h4>
+                <div class="footer-languages">
+                    <a href="#" data-lang="sq" class="<%= lang === 'sq' ? 'active' : '' %>">AL</a>
+                    <span>|</span>
+                    <a href="#" data-lang="de" class="<%= lang === 'de' ? 'active' : '' %>">DE</a>
+                    <span>|</span>
+                    <a href="#" data-lang="en" class="<%= lang === 'en' ? 'active' : '' %>">EN</a>
+                </div>
+
+                <a href="/" class="footer-login">
+                    <i class="fas fa-home"></i> FAQJA KRYESORE
+                </a>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2024 Airkosova Network Shpk. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Widget -->
+    <a href="https://web.whatsapp.com/send?phone=+38344955955" target="_blank" class="whatsapp-widget" title="Chat on WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <script>
+        // Language switcher
+        document.querySelectorAll('.language-selector span, .footer-languages a').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const lang = btn.dataset.lang;
+                try {
+                    const response = await fetch(`/api/lang/${lang}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    console.error('Language switch error:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

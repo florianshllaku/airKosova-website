@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Të Dhënat e Pasagjerëve - AirKosova</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .passengers-page {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .passengers-header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .passengers-header .logo-img {
+            height: 50px;
+        }
+        
+        .back-link {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        
+        .back-link:hover {
+            opacity: 1;
+        }
+        
+        .passengers-main {
+            flex: 1;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .passengers-container {
+            display: flex;
+            gap: 3rem;
+            max-width: 1100px;
+            width: 100%;
+        }
+        
+        .booking-summary {
+            flex: 0 0 350px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            color: white;
+            height: fit-content;
+            position: sticky;
+            top: 2rem;
+        }
+        
+        .booking-summary h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .flight-summary {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .flight-summary .route {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
+        }
+        
+        .flight-summary .route .city .code {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #ffd700;
+        }
+        
+        .flight-summary .route .city .name {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .flight-summary .route .arrow {
+            flex: 1;
+            text-align: center;
+            color: #ffd700;
+            font-size: 0.9rem;
+        }
+        
+        .flight-summary .time-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        .passengers-info {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .passengers-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .passengers-info .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .price-summary {
+            background: linear-gradient(135deg, #ffd700, #ff9500);
+            color: #1a1a2e;
+            border-radius: 12px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+        
+        .price-summary .label {
+            font-size: 0.85rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .price-summary .amount {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .passengers-card {
+            flex: 1;
+            background: white;
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .passengers-card h2 {
+            font-size: 1.5rem;
+            color: #1a1a2e;
+            margin-bottom: 0.5rem;
+        }
+        
+        .passengers-card .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        
+        .passenger-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .passenger-section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            color: #0f3460;
+            font-weight: 600;
+        }
+        
+        .passenger-section-header i {
+            font-size: 1.2rem;
+        }
+        
+        .passenger-section-header .passenger-type {
+            font-size: 0.8rem;
+            background: #0f3460;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+            flex: 1;
+        }
+        
+        .form-group.small {
+            flex: 0 0 120px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #0f3460;
+            box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1);
+        }
+        
+        .form-group input.error,
+        .form-group select.error {
+            border-color: #e74c3c;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            color: #0f3460;
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .progress-steps {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        .step.active {
+            color: #0f3460;
+            font-weight: 600;
+        }
+        
+        .step.completed {
+            color: #27ae60;
+        }
+        
+        .step .step-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .step.active .step-number {
+            background: #0f3460;
+            color: white;
+        }
+        
+        .step.completed .step-number {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .step-connector {
+            width: 40px;
+            height: 2px;
+            background: #e0e0e0;
+        }
+        
+        .passengers-footer {
+            text-align: center;
+            padding: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 900px) {
+            .passengers-container {
+                flex-direction: column;
+            }
+            
+            .booking-summary {
+                flex: 1;
+                position: static;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+            
+            .form-group.small {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body class="passengers-page">
+    <!-- Header -->
+    <header class="passengers-header">
+        <a href="/" class="logo">
+            <img src="/images/airkosova_logo.png" alt="AirKosova" class="logo-img">
+        </a>
+        <a href="/flights" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Kthehu te Fluturimet
+        </a>
+    </header>
+
+    <!-- Main Content -->
+    <main class="passengers-main">
+        <div class="passengers-container">
+            <!-- Booking Summary -->
+            <div class="booking-summary">
+                <h2><i class="fas fa-plane"></i> Rezervimi Juaj</h2>
+                
+                <div class="flight-summary" id="outboundSummary">
+                    <div class="route">
+                        <div class="city">
+                            <div class="code" id="outFromCode">PRN</div>
+                            <div class="name" id="outFromName">Prishtina</div>
+                        </div>
+                        <div class="arrow">
+                            <i class="fas fa-plane"></i>
+                        </div>
+                        <div class="city">
+                            <div class="code" id="outToCode">BSL</div>
+                            <div class="name" id="outToName">Basel</div>
+                        </div>
+                    </div>
+                    <div class="time-info">
+                        <span id="outDate">-</span>
+                        <span id="outPrice">CHF -</span>
+                    </div>
+                </div>
+                
+                <div class="flight-summary" id="returnSummary" style="display: none;">
+                    <div class="route">
+                        <div class="city">
+                            <div class="code" id="retFromCode">BSL</div>
+                            <div class="name" id="retFromName">Basel</div>
+                        </div>
+                        <div class="arrow">
+                            <i class="fas fa-plane"></i>
+                        </div>
+                        <div class="city">
+                            <div class="code" id="retToCode">PRN</div>
+                            <div class="name" id="retToName">Prishtina</div>
+                        </div>
+                    </div>
+                    <div class="time-info">
+                        <span id="retDate">-</span>
+                        <span id="retPrice">CHF -</span>
+                    </div>
+                </div>
+                
+                <div class="passengers-info">
+                    <div class="info-row">
+                        <span>Të rritur:</span>
+                        <span id="adultsCount">1</span>
+                    </div>
+                    <div class="info-row" id="childrenRow" style="display: none;">
+                        <span>Fëmijë:</span>
+                        <span id="childrenCount">0</span>
+                    </div>
+                    <div class="info-row" id="infantsRow" style="display: none;">
+                        <span>Bebe:</span>
+                        <span id="infantsCount">0</span>
+                    </div>
+                </div>
+                
+                <div class="price-summary">
+                    <div class="label">Çmimi Total</div>
+                    <div class="amount" id="totalPrice">CHF 0.00</div>
+                </div>
+            </div>
+            
+            <!-- Passengers Card -->
+            <div class="passengers-card">
+                <!-- Progress Steps -->
+                <div class="progress-steps">
+                    <div class="step completed">
+                        <span class="step-number"><i class="fas fa-check"></i></span>
+                        <span>Fluturimi</span>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step active">
+                        <span class="step-number">2</span>
+                        <span>Pasagjerët</span>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step">
+                        <span class="step-number">3</span>
+                        <span>Pagesa</span>
+                    </div>
+                </div>
+                
+                <h2>Të Dhënat e Pasagjerëve</h2>
+                <p class="subtitle">Plotësoni të dhënat për çdo pasagjer</p>
+                
+                <form id="passengersForm">
+                    <div id="passengersContainer">
+                        <!-- Passenger forms will be dynamically inserted here -->
+                    </div>
+                    
+                    <!-- Contact Info -->
+                    <h3 class="section-title"><i class="fas fa-envelope"></i> Kontakti për Rezervim</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="contactEmail">Email</label>
+                            <input type="email" id="contactEmail" name="contactEmail" placeholder="email@shembull.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="contactPhone">Numri i Telefonit</label>
+                            <input type="tel" id="contactPhone" name="contactPhone" placeholder="+383 44 123 456" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary" id="continueBtn">
+                        <i class="fas fa-arrow-right"></i>
+                        Vazhdo me Pagesën
+                    </button>
+                    
+                    <div class="error-message" id="formError" style="text-align: center; margin-top: 1rem;"></div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="passengers-footer">
+        <p>© 2025 AirKosova - Të gjitha të drejtat e rezervuara</p>
+    </footer>
+
+    <script>
+        // City codes
+        const cities = <%- JSON.stringify(cities) %>;
+        
+        // Get booking data from session storage
+        const bookingData = JSON.parse(sessionStorage.getItem('bookingData') || '{}');
+        const userData = JSON.parse(sessionStorage.getItem('user') || '{}');
+        
+        // Populate contact info if user is logged in
+        if (userData.email) {
+            document.getElementById('contactEmail').value = userData.email;
+        }
+        if (userData.phonePrefix && userData.phoneNumber) {
+            document.getElementById('contactPhone').value = userData.phonePrefix + ' ' + userData.phoneNumber;
+        }
+        
+        // Create passenger form template
+        function createPassengerForm(index, type = 'adult') {
+            const typeLabels = {
+                adult: 'I rritur',
+                child: 'Fëmijë',
+                infant: 'Bebe'
+            };
+            
+            const typeLabel = typeLabels[type] || 'I rritur';
+            
+            return `
+                <div class="passenger-section" data-passenger="${index}" data-type="${type}">
+                    <div class="passenger-section-header">
+                        <i class="fas fa-user"></i>
+                        <span>Pasagjeri ${index + 1}</span>
+                        <span class="passenger-type">${typeLabel}</span>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group small">
+                            <label for="salutation_${index}">Thirrja</label>
+                            <select id="salutation_${index}" name="salutation_${index}" required>
+                                <option value="mr">Z.</option>
+                                <option value="mrs">Znj.</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="firstName_${index}">Emri (siç shkruhet në pasaportë)</label>
+                            <input type="text" id="firstName_${index}" name="firstName_${index}" placeholder="Emri" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName_${index}">Mbiemri (siç shkruhet në pasaportë)</label>
+                            <input type="text" id="lastName_${index}" name="lastName_${index}" placeholder="Mbiemri" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="birthDate_${index}">Data e Lindjes</label>
+                            <input type="date" id="birthDate_${index}" name="birthDate_${index}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="nationality_${index}">Shtetësia</label>
+                            <select id="nationality_${index}" name="nationality_${index}" required>
+                                <option value="XK">Kosovë</option>
+                                <option value="AL">Shqipëri</option>
+                                <option value="MK">Maqedoni e Veriut</option>
+                                <option value="ME">Mali i Zi</option>
+                                <option value="DE">Gjermani</option>
+                                <option value="CH">Zvicër</option>
+                                <option value="AT">Austri</option>
+                                <option value="IT">Itali</option>
+                                <option value="SE">Suedi</option>
+                                <option value="NO">Norvegji</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Populate booking summary
+        function populateSummary() {
+            if (!bookingData.departure) return;
+            
+            const fromCode = cities[bookingData.departure] || 'PRN';
+            const toCode = cities[bookingData.destination] || 'BSL';
+            
+            document.getElementById('outFromCode').textContent = fromCode;
+            document.getElementById('outFromName').textContent = bookingData.departure;
+            document.getElementById('outToCode').textContent = toCode;
+            document.getElementById('outToName').textContent = bookingData.destination;
+            document.getElementById('outDate').textContent = bookingData.departureDate || '-';
+            document.getElementById('outPrice').textContent = `CHF ${bookingData.outbound?.price || '0'}`;
+            
+            if (bookingData.return && bookingData.tripType === 'roundtrip') {
+                document.getElementById('returnSummary').style.display = 'block';
+                document.getElementById('retFromCode').textContent = toCode;
+                document.getElementById('retFromName').textContent = bookingData.destination;
+                document.getElementById('retToCode').textContent = fromCode;
+                document.getElementById('retToName').textContent = bookingData.departure;
+                document.getElementById('retDate').textContent = bookingData.returnDate || '-';
+                document.getElementById('retPrice').textContent = `CHF ${bookingData.return?.price || '0'}`;
+            }
+            
+            // Passenger counts
+            const adults = parseInt(bookingData.adults) || 1;
+            const children = parseInt(bookingData.children) || 0;
+            const infants = parseInt(bookingData.infants) || 0;
+            
+            document.getElementById('adultsCount').textContent = adults;
+            
+            if (children > 0) {
+                document.getElementById('childrenRow').style.display = 'flex';
+                document.getElementById('childrenCount').textContent = children;
+            }
+            
+            if (infants > 0) {
+                document.getElementById('infantsRow').style.display = 'flex';
+                document.getElementById('infantsCount').textContent = infants;
+            }
+            
+            // Calculate total
+            const outPrice = parseFloat(bookingData.outbound?.price) || 0;
+            const retPrice = parseFloat(bookingData.return?.price) || 0;
+            document.getElementById('totalPrice').textContent = `CHF ${(outPrice + retPrice).toFixed(2)}`;
+        }
+        
+        // Generate passenger forms
+        function generatePassengerForms() {
+            const container = document.getElementById('passengersContainer');
+            const adults = parseInt(bookingData.adults) || 1;
+            const children = parseInt(bookingData.children) || 0;
+            const infants = parseInt(bookingData.infants) || 0;
+            
+            let html = '';
+            let index = 0;
+            
+            // Adults
+            for (let i = 0; i < adults; i++) {
+                html += createPassengerForm(index, 'adult');
+                index++;
+            }
+            
+            // Children
+            for (let i = 0; i < children; i++) {
+                html += createPassengerForm(index, 'child');
+                index++;
+            }
+            
+            // Infants
+            for (let i = 0; i < infants; i++) {
+                html += createPassengerForm(index, 'infant');
+                index++;
+            }
+            
+            container.innerHTML = html;
+            
+            // Pre-fill first passenger if user is logged in
+            if (userData.firstName) {
+                document.getElementById('firstName_0').value = userData.firstName;
+                document.getElementById('lastName_0').value = userData.lastName || '';
+                document.getElementById('salutation_0').value = userData.salutation || 'mr';
+            }
+        }
+        
+        // Form submission
+        document.getElementById('passengersForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const continueBtn = document.getElementById('continueBtn');
+            const formError = document.getElementById('formError');
+            
+            // Collect all passenger data
+            const passengers = [];
+            document.querySelectorAll('.passenger-section').forEach((section, index) => {
+                passengers.push({
+                    salutation: document.getElementById(`salutation_${index}`).value,
+                    firstName: document.getElementById(`firstName_${index}`).value,
+                    lastName: document.getElementById(`lastName_${index}`).value,
+                    birthDate: document.getElementById(`birthDate_${index}`).value,
+                    nationality: document.getElementById(`nationality_${index}`).value,
+                    type: section.dataset.type
+                });
+            });
+            
+            const contactData = {
+                email: document.getElementById('contactEmail').value,
+                phone: document.getElementById('contactPhone').value
+            };
+            
+            // Store in session
+            sessionStorage.setItem('passengers', JSON.stringify(passengers));
+            sessionStorage.setItem('contactData', JSON.stringify(contactData));
+            
+            continueBtn.disabled = true;
+            continueBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Duke procesuar...';
+            
+            // Simulate processing and redirect to payment
+            setTimeout(() => {
+                // For now, show success message
+                alert('Të dhënat u ruajtën me sukses! Pagesa do të implementohet së shpejti.');
+                window.location.href = '/';
+            }, 1500);
+        });
+        
+        // Initialize
+        populateSummary();
+        generatePassengerForms();
+    </script>
+</body>
+</html>
+
+
+
+

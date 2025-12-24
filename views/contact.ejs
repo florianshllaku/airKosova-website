@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirKosova - Kontakt</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .contact-page {
+            background: var(--color-bg);
+            min-height: 100vh;
+        }
+        
+        .contact-hero {
+            background: linear-gradient(135deg, var(--color-dark) 0%, var(--color-dark-soft) 100%);
+            padding: 120px var(--space-xl) var(--space-4xl);
+            text-align: center;
+            position: relative;
+        }
+        
+        .contact-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(14, 165, 233, 0.15), transparent);
+            pointer-events: none;
+        }
+        
+        .contact-hero h1 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--color-white);
+            margin-bottom: var(--space-sm);
+            letter-spacing: -0.02em;
+            position: relative;
+        }
+        
+        .contact-hero p {
+            color: var(--color-gray-400);
+            font-size: 1rem;
+            position: relative;
+        }
+        
+        .contact-section {
+            padding: var(--space-3xl) var(--space-xl);
+        }
+        
+        .contact-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            color: var(--color-gray-500);
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: var(--space-xl);
+            transition: all var(--duration-fast) var(--ease-out);
+        }
+        
+        .back-link:hover {
+            color: var(--color-primary);
+            gap: var(--space-md);
+        }
+        
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+        
+        .contact-card {
+            background: var(--color-white);
+            border: 1px solid var(--color-gray-200);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            transition: all var(--duration-normal) var(--ease-out);
+        }
+        
+        .contact-card:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(2, 132, 199, 0.1);
+        }
+        
+        .contact-card h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--color-gray-800);
+            margin-bottom: var(--space-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        
+        .contact-card h3 i {
+            color: var(--color-primary);
+            font-size: 1rem;
+        }
+        
+        .contact-card .company-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-gray-700);
+            margin-bottom: var(--space-md);
+        }
+        
+        .contact-card .address {
+            color: var(--color-gray-500);
+            line-height: 1.8;
+            font-size: 0.8rem;
+        }
+        
+        .contact-card .address p {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-xs);
+        }
+        
+        .contact-card .address i {
+            color: var(--color-primary);
+            min-width: 16px;
+            margin-top: 2px;
+            font-size: 0.75rem;
+        }
+        
+        .support-section {
+            background: var(--color-white);
+            border: 1px solid var(--color-gray-200);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2xl);
+            text-align: center;
+        }
+        
+        .support-section h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-gray-800);
+            margin-bottom: var(--space-xs);
+        }
+        
+        .support-section .badge-24h {
+            display: inline-block;
+            background: var(--color-primary-soft);
+            color: var(--color-primary);
+            padding: var(--space-xs) var(--space-md);
+            border-radius: var(--radius-full);
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: var(--space-xl);
+            letter-spacing: 0.05em;
+        }
+        
+        .phone-grid {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-md);
+            flex-wrap: wrap;
+            margin-bottom: var(--space-xl);
+        }
+        
+        .phone-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            background: var(--color-bg);
+            border: 1px solid var(--color-gray-200);
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-md);
+            transition: all var(--duration-fast) var(--ease-out);
+            text-decoration: none;
+            color: var(--color-gray-600);
+        }
+        
+        .phone-item:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+        
+        .phone-item i {
+            font-size: 0.85rem;
+            color: var(--color-primary);
+        }
+        
+        .phone-item span {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .email-link {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            background: var(--color-primary);
+            color: var(--color-white);
+            padding: var(--space-sm) var(--space-xl);
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all var(--duration-fast) var(--ease-out);
+        }
+        
+        .email-link:hover {
+            background: var(--color-primary-dark);
+            transform: translateY(-2px);
+        }
+        
+        .fixed-nav {
+            background: var(--color-dark);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .fixed-nav .main-nav {
+            padding: var(--space-md) var(--space-xl);
+        }
+        
+        .nav-links a.active {
+            color: var(--color-primary-light);
+        }
+        
+        @media (max-width: 768px) {
+            .contact-hero {
+                padding: 100px var(--space-md) var(--space-2xl);
+            }
+            
+            .contact-hero h1 {
+                font-size: 1.75rem;
+            }
+            
+            .contact-section {
+                padding: var(--space-xl) var(--space-md);
+            }
+            
+            .contact-grid {
+                grid-template-columns: 1fr;
+                gap: var(--space-md);
+            }
+            
+            .contact-card {
+                padding: var(--space-lg);
+            }
+            
+            .support-section {
+                padding: var(--space-xl);
+            }
+            
+            .phone-grid {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .phone-item {
+                width: 100%;
+                max-width: 280px;
+                justify-content: center;
+            }
+        }
+        
+        /* Animations */
+        .contact-card,
+        .support-section {
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .contact-card:nth-child(1) { animation-delay: 0ms; }
+        .contact-card:nth-child(2) { animation-delay: 100ms; }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="contact-page">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <a href="tel:+38338660880">
+                <i class="fas fa-phone"></i> +383 38 660 880
+            </a>
+            <a href="mailto:info@airkosova.net">
+                <i class="fas fa-envelope"></i> info@airkosova.net
+            </a>
+        </div>
+        <div class="top-bar-right">
+            <a href="/" class="login-btn">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <div class="language-selector">
+                <i class="fas fa-globe"></i>
+                <span data-lang="sq" class="<%= lang === 'sq' ? 'active' : '' %>">AL</span>
+                <span data-lang="de" class="<%= lang === 'de' ? 'active' : '' %>">DE</span>
+                <span data-lang="en" class="<%= lang === 'en' ? 'active' : '' %>">EN</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="fixed-nav" style="top: 37px;">
+        <nav class="main-nav">
+            <a href="/" class="logo">
+                <img src="/images/airkosova_logo.png" alt="AirKosova" class="logo-img">
+            </a>
+            <div class="nav-links">
+                <a href="/"><i class="fas fa-home"></i></a>
+                <a href="/#booking"><i class="fas fa-plane"></i> REZERVO</a>
+                <div class="nav-dropdown">
+                    <a href="#" class="dropdown-trigger">INFORMACIONE <i class="fas fa-chevron-down"></i></a>
+                    <div class="dropdown-menu">
+                        <a href="/info/siguria"><i class="fas fa-shield-alt"></i> Siguria</a>
+                        <a href="/info/para-udhetimit"><i class="fas fa-clipboard-check"></i> Para Udhëtimit</a>
+                        <a href="/info/e-biletat"><i class="fas fa-ticket-alt"></i> E-Biletat</a>
+                        <a href="/info/bagazhi"><i class="fas fa-suitcase-rolling"></i> Bagazhi</a>
+                        <a href="/info/shendeti"><i class="fas fa-heartbeat"></i> Shëndeti</a>
+                    </div>
+                </div>
+                <a href="/contact" class="active">KONTAKT</a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="contact-hero">
+        <h1>Kontakt</h1>
+        <p>Na kontaktoni për çdo pyetje ose ndihmë</p>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="contact-container">
+            <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Kthehu në faqen kryesore</a>
+            
+            <div class="contact-grid">
+                <!-- Prishtina Office -->
+                <div class="contact-card">
+                    <h3><i class="fas fa-building"></i> Prishtina, Kosovë</h3>
+                    <div class="company-name">Airkosova Network Shpk.</div>
+                    <div class="address">
+                        <p><i class="fas fa-map-marker-alt"></i> Bulevardi Bill Klinton 12</p>
+                        <p><i class="fas fa-city"></i> 10000 Prishtinë, Kosovë</p>
+                    </div>
+                </div>
+                
+                <!-- London Office -->
+                <div class="contact-card">
+                    <h3><i class="fas fa-building"></i> London, UK</h3>
+                    <div class="company-name">Airkosova Network LLP</div>
+                    <div class="address">
+                        <p><i class="fas fa-map-marker-alt"></i> 71-75 Shelton Street</p>
+                        <p><i class="fas fa-landmark"></i> Covent Garden</p>
+                        <p><i class="fas fa-city"></i> London, WC2H 9JQ UK</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Support Section -->
+            <div class="support-section">
+                <h3><i class="fas fa-headset"></i> Support</h3>
+                <div class="badge-24h">24/7</div>
+                
+                <div class="phone-grid">
+                    <a href="tel:+38338660880" class="phone-item">
+                        <i class="fas fa-phone"></i>
+                        <span>+383 38 660 880</span>
+                    </a>
+                    <a href="tel:+38344955955" class="phone-item">
+                        <i class="fas fa-phone"></i>
+                        <span>+383 44 955 955</span>
+                    </a>
+                    <a href="tel:+41435052880" class="phone-item">
+                        <i class="fas fa-phone"></i>
+                        <span>+41 43 505 28 80</span>
+                    </a>
+                </div>
+                
+                <a href="mailto:info@airkosova.net" class="email-link">
+                    <i class="fas fa-envelope"></i> info@airkosova.net
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <a href="/" class="footer-logo">
+                    <img src="/images/airkosova_logo.png" alt="AirKosova" class="footer-logo-img">
+                </a>
+                <p class="footer-tagline">Fluturime të sigurta dhe të përballueshme</p>
+            </div>
+
+            <div class="footer-section">
+                <h4>Prishtina</h4>
+                <ul>
+                    <li><i class="fas fa-map-marker-alt"></i> Bulevardi Bill Klinton 12</li>
+                    <li><a href="tel:+38344955955"><i class="fas fa-phone"></i> +383 44 955 955</a></li>
+                    <li><a href="mailto:info@airkosova.net"><i class="fas fa-envelope"></i> info@airkosova.net</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>London</h4>
+                <ul>
+                    <li><i class="fas fa-map-marker-alt"></i> 71-75 Shelton Street, WC2H 9JQ</li>
+                    <li><a href="mailto:info@airkosova.net"><i class="fas fa-envelope"></i> info@airkosova.net</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Pagesat</h4>
+                <div class="payment-methods">
+                    <div class="payment-icon visa-icon">VISA</div>
+                    <div class="payment-icon mastercard-icon">
+                        <div class="mc-circles">
+                            <span class="mc-red"></span>
+                            <span class="mc-orange"></span>
+                        </div>
+                    </div>
+                    <div class="payment-icon euro-icon">€</div>
+                </div>
+                
+                <h4 class="mt-20">Gjuhët</h4>
+                <div class="footer-languages">
+                    <a href="#" data-lang="sq" class="<%= lang === 'sq' ? 'active' : '' %>">AL</a>
+                    <span>|</span>
+                    <a href="#" data-lang="de" class="<%= lang === 'de' ? 'active' : '' %>">DE</a>
+                    <span>|</span>
+                    <a href="#" data-lang="en" class="<%= lang === 'en' ? 'active' : '' %>">EN</a>
+                </div>
+
+                <a href="/" class="footer-login">
+                    <i class="fas fa-home"></i> FAQJA KRYESORE
+                </a>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>© 2025 Airkosova Network Shpk. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Widget -->
+    <a href="https://web.whatsapp.com/send?phone=+38344955955" target="_blank" class="whatsapp-widget" title="Chat on WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <script>
+        // Language switcher
+        document.querySelectorAll('.language-selector span, .footer-languages a').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const lang = btn.dataset.lang;
+                try {
+                    const response = await fetch(`/api/lang/${lang}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    console.error('Language switch error:', error);
+                }
+            });
+        });
+        
+        // Smooth page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.3s ease';
+            requestAnimationFrame(() => {
+                document.body.style.opacity = '1';
+            });
+        });
+    </script>
+</body>
+</html>

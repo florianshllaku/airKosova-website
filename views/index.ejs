@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirKosova - <%= lang === 'de' ? 'Günstige Flüge' : (lang === 'en' ? 'Cheap Flights' : 'Fluturime të Lira') %></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        /* =====================================================
+           FORMS WRAPPER - BOTH FORMS SHARE SAME SPACE
+           ===================================================== */
+        
+        .forms-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+        }
+        
+        .booking-form,
+        .login-form {
+            grid-column: 1;
+            grid-row: 1;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 0 12px 12px 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+        }
+        
+        .login-form {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        
+        .login-form.active {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .booking-form {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        
+        .booking-form.hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* =====================================================
+           LOGIN FORM INTERNAL LAYOUT
+           ===================================================== */
+        
+        .login-form #loginFormElement {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .login-form .login-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            min-height: 170px;
+        }
+        
+        .login-form .login-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 16px;
+            align-items: flex-end;
+            flex: 0 0 auto;
+        }
+        
+        .login-form .form-group {
+            margin: 0;
+        }
+        
+        .login-form .form-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.65rem;
+            color: #6b7280;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+        
+        .login-form .form-group label i {
+            color: #0284c7;
+            font-size: 0.7rem;
+        }
+        
+        .login-form .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            color: #1f2937;
+            background: #ffffff;
+            transition: all 0.15s ease;
+        }
+        
+        .login-form .form-group input:hover {
+            border-color: #9ca3af;
+        }
+        
+        .login-form .form-group input:focus {
+            outline: none;
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.08);
+        }
+        
+        .login-form .form-group input.error {
+            border-color: #ef4444;
+        }
+        
+        .login-form .error-message {
+            color: #ef4444;
+            font-size: 0.7rem;
+            margin-top: 4px;
+            display: none;
+        }
+        
+        .login-form .error-message.show {
+            display: block;
+        }
+        
+        .login-form .btn-login {
+            padding: 10px 24px;
+            background: #0284c7;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            height: 40px;
+        }
+        
+        .login-form .btn-login:hover {
+            background: #0369a1;
+            transform: translateY(-1px);
+        }
+        
+        .login-form .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .login-form .login-options {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: auto; /* Push to bottom to fill space */
+        }
+        
+        .login-form .login-links {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        
+        .login-form .forgot-link,
+        .login-form .register-link {
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: color 0.15s ease;
+        }
+        
+        .login-form .forgot-link:hover,
+        .login-form .register-link:hover {
+            color: #0284c7;
+        }
+        
+        .login-form .register-link span {
+            color: #0284c7;
+            font-weight: 600;
+        }
+
+        /* User Menu Styles */
+        .user-menu {
+            display: none;
+            position: relative;
+        }
+        
+        .user-menu.show {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .user-menu .user-name {
+            color: #d1d5db;
+            font-size: 0.75rem;
+        }
+        
+        .user-menu .user-avatar {
+            width: 28px;
+            height: 28px;
+            background: #0284c7;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        
+        .user-menu .logout-btn {
+            color: #9ca3af;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+            transition: color 0.15s ease;
+        }
+        
+        .user-menu .logout-btn:hover {
+            color: #0ea5e9;
+        }
+        
+        .login-btn-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .login-form .login-row {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .login-form .btn-login {
+                width: 100%;
+                justify-content: center;
+                margin-top: 8px;
+            }
+            
+            .login-form .login-options {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <a href="tel:+38338660880">
+                <i class="fas fa-phone"></i> +383 38 660 880
+            </a>
+            <a href="mailto:info@airkosova.net">
+                <i class="fas fa-envelope"></i> info@airkosova.net
+            </a>
+        </div>
+        <div class="top-bar-right">
+            <div class="login-btn-wrapper">
+                <a href="#" class="login-btn" id="topLoginBtn">
+                    <%= t.login %> <i class="fas fa-arrow-right"></i>
+                </a>
+                
+                <div class="user-menu" id="userMenu">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <span class="user-name" id="userName">User</span>
+                    <button class="logout-btn" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="language-selector">
+                <i class="fas fa-globe"></i>
+                <span data-lang="sq" class="<%= lang === 'sq' ? 'active' : '' %>">AL</span>
+                <span data-lang="de" class="<%= lang === 'de' ? 'active' : '' %>">DE</span>
+                <span data-lang="en" class="<%= lang === 'en' ? 'active' : '' %>">EN</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <!-- Main Navigation -->
+        <nav class="main-nav">
+            <a href="/" class="logo">
+                <img src="/images/airkosova_logo.png" alt="AirKosova" class="logo-img">
+            </a>
+            <div class="nav-links">
+                <a href="/"><i class="fas fa-home"></i></a>
+                <a href="#"><i class="fas fa-plane"></i> <%= t.nav_book.toUpperCase() %></a>
+                <div class="nav-dropdown">
+                    <a href="#" class="dropdown-trigger"><%= t.nav_info.toUpperCase() %> <i class="fas fa-chevron-down"></i></a>
+                    <div class="dropdown-menu">
+                        <a href="/info/siguria"><i class="fas fa-shield-alt"></i> Siguria</a>
+                        <a href="/info/para-udhetimit"><i class="fas fa-clipboard-check"></i> Para Udhëtimit</a>
+                        <a href="/info/e-biletat"><i class="fas fa-ticket-alt"></i> E-Biletat</a>
+                        <a href="/info/bagazhi"><i class="fas fa-suitcase-rolling"></i> Bagazhi</a>
+                        <a href="/info/shendeti"><i class="fas fa-heartbeat"></i> Shëndeti</a>
+                    </div>
+                </div>
+                <a href="/contact"><%= t.nav_contact.toUpperCase() %></a>
+            </div>
+        </nav>
+
+        <!-- Booking Form -->
+        <div class="booking-container">
+            <div class="form-tabs">
+                <button class="form-tab active" data-tab="flights" id="flightsTab">
+                    <i class="fas fa-plane"></i> <%= t.tab_flights %>
+                </button>
+                <button class="form-tab" data-tab="login" id="loginTab">
+                    <i class="fas fa-user"></i> <%= t.tab_login %>
+                </button>
+            </div>
+
+            <!-- Forms Container - Both forms share same space -->
+            <div class="forms-container">
+            <!-- Flight Search Form -->
+            <form class="booking-form" id="flightSearchForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-plane-departure"></i> <%= t.departure %></label>
+                        <div class="custom-select" id="departureWrapper">
+                            <div class="select-display" id="departureDisplay"><%= t.departure_placeholder %></div>
+                            <div class="select-dropdown" id="departureDropdown">
+                                <% Object.keys(flightRoutes).sort().forEach(city => { %>
+                                    <div class="select-option" data-value="<%= city %>" data-code="<%= cities[city] %>">
+                                        <%= city %> (<%= cities[city] %>)
+                                    </div>
+                                <% }); %>
+                            </div>
+                            <input type="hidden" id="departure" name="departure" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-plane-arrival"></i> <%= t.destination %></label>
+                        <div class="custom-select" id="destinationWrapper">
+                            <div class="select-display" id="destinationDisplay" data-placeholder="<%= t.destination_placeholder %>"><%= t.destination_placeholder %></div>
+                            <div class="select-dropdown" id="destinationDropdown">
+                            </div>
+                            <input type="hidden" id="destination" name="destination" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-calendar"></i> <%= t.departure_date %></label>
+                        <input type="date" id="departureDate" name="departureDate" required>
+                    </div>
+                    <div class="form-group" id="returnDateGroup">
+                        <label><i class="fas fa-calendar"></i> <%= t.return_date %></label>
+                        <input type="date" id="returnDate" name="returnDate">
+                    </div>
+                    <div class="form-group small">
+                        <label><i class="fas fa-user"></i> <%= t.adults %></label>
+                        <select id="adults" name="adults">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    <div class="form-group small">
+                        <label><i class="fas fa-child"></i> <%= t.children %></label>
+                        <select id="children" name="children">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                        </select>
+                    </div>
+                    <div class="form-group small">
+                        <label><i class="fas fa-baby"></i> <%= t.infants %></label>
+                        <select id="infants" name="infants">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="options-row">
+                    <div class="trip-type">
+                        <label class="radio-option">
+                            <input type="radio" name="tripType" value="roundtrip" checked>
+                            <span><%= t.roundtrip %></span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="tripType" value="oneway">
+                            <span><%= t.oneway %></span>
+                        </label>
+                    </div>
+
+                    <label class="payment-option">
+                        <input type="checkbox" checked>
+                        <div class="payment-icons">
+                            <span class="visa">VISA</span>
+                            <div class="mastercard">
+                                <div class="mc-circle mc-red"></div>
+                                <div class="mc-circle mc-orange"></div>
+                            </div>
+                        </div>
+                        <span class="payment-text"><%= t.payment_text %></span>
+                    </label>
+
+                    <button type="submit" class="search-btn">
+                        <i class="fas fa-search"></i> <%= t.search_flight %>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Login Form - SAME SIZE AS BOOKING FORM -->
+            <div class="login-form" id="loginForm">
+                <form id="loginFormElement">
+                    <div class="login-content">
+                        <div class="login-row">
+                            <div class="form-group">
+                                <label for="loginEmail"><i class="fas fa-envelope"></i> <%= t.login_email %></label>
+                                <input type="email" id="loginEmail" name="email" placeholder="email@example.com" required>
+                                <div class="error-message" id="emailError"><%= t.login_error_email %></div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="loginPassword"><i class="fas fa-lock"></i> <%= t.login_password %></label>
+                                <input type="password" id="loginPassword" name="password" placeholder="••••••••" required>
+                                <div class="error-message" id="passwordError"><%= t.login_error_password %></div>
+                            </div>
+                            
+                            <button type="submit" class="btn-login" id="loginBtn">
+                                <i class="fas fa-arrow-right"></i> <%= t.login_button %>
+                            </button>
+                        </div>
+                        
+                        <div class="error-message" id="loginError" style="text-align: center;"></div>
+                        
+                        <div class="login-options">
+                            <div class="login-links">
+                                <a href="/forgot-password" class="forgot-link">
+                                    <i class="fas fa-key"></i> <%= t.login_forgot %>
+                                </a>
+                            </div>
+                            <a href="/register" class="register-link">
+                                <%= t.login_no_account %> <span><%= t.login_register %></span>
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            </div><!-- End forms-container -->
+        </div>
+    </section>
+
+    <!-- Info Cards Section -->
+    <section class="info-section">
+        <h2 class="company-title">Airkosova Network</h2>
+        <div class="info-cards">
+            <div class="info-card">
+                <div class="info-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>10+ vjet përvojë</h3>
+                <p>Besoni në sigurinë dhe ekspertizën tonë.</p>
+            </div>
+            <div class="info-card">
+                <div class="info-icon">
+                    <i class="fas fa-laptop"></i>
+                </div>
+                <h3>Rezervime Online</h3>
+                <p>Rezervoni fluturimet tuaja lehtësisht online.</p>
+            </div>
+            <div class="info-card">
+                <div class="info-icon">
+                    <i class="fas fa-headset"></i>
+                </div>
+                <h3>Support 24/7</h3>
+                <p>Jemi në shërbimin tuaj në çdo moment.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Top Destinations Section - 3x3 GRID -->
+    <section class="destinations-section">
+        <h2 class="section-title">Destinacionet Kryesore</h2>
+        <p class="section-subtitle">Fluturime direkte drejt destinacioneve më të kërkuara</p>
+        
+        <div class="destinations-grid">
+            <!-- Row 1 -->
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/basel.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Basel</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Basel — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/dusseldorf.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Düsseldorf</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Düsseldorf — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/munchen.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">München</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>München — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- Row 2 -->
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/stuttgart.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Stuttgart</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Stuttgart — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/nuremberg.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Nürnberg</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Nürnberg — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/bremen.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Bremen</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Bremen — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- Row 3 -->
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/munster.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Münster</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Münster — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/vaxjo.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Växjö</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Växjö — Prishtina</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="#" class="destination-card">
+                <div class="destination-image" style="background-image: url('/images/top-destinations/prishtina.png');">
+                    <div class="destination-overlay"></div>
+                    <span class="city-label">Prishtina</span>
+                </div>
+                <div class="destination-content">
+                    <div class="destination-route">
+                        <i class="fas fa-plane"></i>
+                        <span>Prishtina — Basel</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <a href="/" class="footer-logo">
+                    <img src="/images/airkosova_logo.png" alt="AirKosova" class="footer-logo-img">
+                </a>
+                <p class="footer-tagline">Fluturime të sigurta dhe të përballueshme</p>
+            </div>
+
+            <div class="footer-section">
+                <h4>Prishtina</h4>
+                <ul>
+                    <li><i class="fas fa-map-marker-alt"></i> Bulevardi Bill Klinton 12</li>
+                    <li><a href="tel:+38344955955"><i class="fas fa-phone"></i> +383 44 955 955</a></li>
+                    <li><a href="mailto:info@airkosova.net"><i class="fas fa-envelope"></i> info@airkosova.net</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>London</h4>
+                <ul>
+                    <li><i class="fas fa-map-marker-alt"></i> 71-75 Shelton Street, WC2H 9JQ</li>
+                    <li><a href="mailto:info@airkosova.net"><i class="fas fa-envelope"></i> info@airkosova.net</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Pagesat</h4>
+                <div class="payment-methods">
+                    <div class="payment-icon visa-icon">VISA</div>
+                    <div class="payment-icon mastercard-icon">
+                        <div class="mc-circles">
+                            <span class="mc-red"></span>
+                            <span class="mc-orange"></span>
+                        </div>
+                    </div>
+                    <div class="payment-icon euro-icon">€</div>
+                </div>
+                
+                <h4 class="mt-20">Gjuhët</h4>
+                <div class="footer-languages">
+                    <a href="#" data-lang="sq" class="<%= lang === 'sq' ? 'active' : '' %>">AL</a>
+                    <span>|</span>
+                    <a href="#" data-lang="de" class="<%= lang === 'de' ? 'active' : '' %>">DE</a>
+                    <span>|</span>
+                    <a href="#" data-lang="en" class="<%= lang === 'en' ? 'active' : '' %>">EN</a>
+                </div>
+
+                <a href="#" class="footer-login" id="footerLoginBtn">
+                    <i class="fas fa-arrow-right"></i> LOGIN
+                </a>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>© 2025 Airkosova Network Shpk. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Widget -->
+    <a href="https://web.whatsapp.com/send?phone=+38344955955" target="_blank" class="whatsapp-widget" title="Chat on WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <script src="/js/main.js"></script>
+    <script>
+        // Translations object for JavaScript
+        const translations = {
+            login_loading: '<%= t.login_loading %>',
+            login_success: '<%= t.login_success %>',
+            login_error_generic: '<%= t.login_error_generic %>',
+            login_button: '<%= t.login_button %>',
+            tab_login: '<%= t.tab_login %>',
+            logout: '<%= t.logout %>'
+        };
+        
+        // Get elements
+        const loginTab = document.getElementById('loginTab');
+        const topLoginBtn = document.getElementById('topLoginBtn');
+        const userMenu = document.getElementById('userMenu');
+        const userName = document.getElementById('userName');
+        const userAvatar = document.getElementById('userAvatar');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const flightsTab = document.getElementById('flightsTab');
+        
+        // Language switcher
+        document.querySelectorAll('.language-selector span').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const lang = btn.dataset.lang;
+                try {
+                    const response = await fetch(`/api/lang/${lang}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    console.error('Language switch error:', error);
+                }
+            });
+        });
+        
+        // Top bar login button - triggers the login tab
+        topLoginBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginTab.click();
+            document.querySelector('.booking-container').scrollIntoView({ behavior: 'smooth' });
+        });
+        
+        // Check if user is logged in
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/user');
+                const data = await response.json();
+                
+                if (data.success && data.user) {
+                    showUserMenu(data.user);
+                } else {
+                    showLoginButton();
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showLoginButton();
+            }
+        }
+        
+        // Show user menu when logged in
+        function showUserMenu(user) {
+            topLoginBtn.style.display = 'none';
+            userMenu.classList.add('show');
+            
+            const displayName = user.firstName || user.email.split('@')[0];
+            userName.textContent = displayName;
+            userAvatar.textContent = displayName.charAt(0).toUpperCase();
+            
+            loginTab.innerHTML = '<i class="fas fa-user"></i> ' + displayName;
+        }
+        
+        // Show login button when not logged in
+        function showLoginButton() {
+            topLoginBtn.style.display = 'flex';
+            userMenu.classList.remove('show');
+            loginTab.innerHTML = '<i class="fas fa-user"></i> ' + translations.tab_login;
+        }
+        
+        // Login form submission
+        document.getElementById('loginFormElement').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loginError = document.getElementById('loginError');
+            
+            // Reset errors
+            document.querySelectorAll('.error-message').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('#loginForm input').forEach(el => el.classList.remove('error'));
+            
+            // Validate email
+            if (!email || !/\S+@\S+\.\S+/.test(email)) {
+                document.getElementById('loginEmail').classList.add('error');
+                document.getElementById('emailError').classList.add('show');
+                return;
+            }
+            
+            // Disable button
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + translations.login_loading;
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    sessionStorage.setItem('user', JSON.stringify(data.user));
+                    showUserMenu(data.user);
+                    flightsTab.click();
+                    
+                    loginError.textContent = translations.login_success;
+                    loginError.style.color = '#22c55e';
+                    loginError.classList.add('show');
+                    
+                    setTimeout(() => {
+                        loginError.classList.remove('show');
+                        loginError.style.color = '#ef4444';
+                    }, 2000);
+                } else {
+                    loginError.textContent = data.message || translations.login_error_generic;
+                    loginError.classList.add('show');
+                }
+            } catch (error) {
+                loginError.textContent = translations.login_error_generic;
+                loginError.classList.add('show');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-arrow-right"></i> ' + translations.login_button;
+            }
+        });
+        
+        // Logout functionality
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                sessionStorage.removeItem('user');
+                showLoginButton();
+                document.getElementById('loginFormElement').reset();
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        });
+        
+        // Check auth on page load
+        checkAuth();
+        
+        // Footer login button
+        document.getElementById('footerLoginBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            loginTab.click();
+            document.querySelector('.booking-container').scrollIntoView({ behavior: 'smooth' });
+        });
+        
+        // Footer language switcher
+        document.querySelectorAll('.footer-languages a').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const lang = btn.dataset.lang;
+                try {
+                    const response = await fetch(`/api/lang/${lang}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    console.error('Language switch error:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
