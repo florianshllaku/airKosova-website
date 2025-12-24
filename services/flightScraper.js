@@ -168,30 +168,21 @@ async function searchFlights(searchParams) {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         
         // ⚡ SPEED OPTIMIZATION: Block unnecessary resources
-        // On server, be less aggressive to ensure page works correctly
-        if (SPEED_MODE) {
+        // On server, disable blocking to ensure maximum compatibility
+        if (SPEED_MODE && !IS_SERVER) {
             await page.setRequestInterception(true);
             page.on('request', (req) => {
                 const resourceType = req.resourceType();
                 const url = req.url();
                 
-                // Block images, fonts, media, and tracking scripts
-                // On server, only block images and tracking (keep fonts for Angular)
-                const shouldBlock = IS_SERVER 
-                    ? (resourceType === 'image' || 
-                       resourceType === 'media' ||
-                       url.includes('google-analytics') ||
-                       url.includes('facebook') ||
-                       url.includes('hotjar'))
-                    : (resourceType === 'image' ||
+                // Block images, fonts, media, and tracking scripts (local only)
+                const shouldBlock = (resourceType === 'image' ||
                        resourceType === 'font' ||
                        resourceType === 'media' ||
                        url.includes('google-analytics') ||
                        url.includes('facebook') ||
                        url.includes('hotjar') ||
-                       url.includes('tracking') ||
-                       url.includes('.woff') ||
-                       url.includes('.woff2'));
+                       url.includes('tracking'));
                 
                 if (shouldBlock) {
                     req.abort();
@@ -199,19 +190,36 @@ async function searchFlights(searchParams) {
                     req.continue();
                 }
             });
-            log('⚡', `Speed mode: Blocking resources (${IS_SERVER ? 'server-safe' : 'aggressive'})`);
+            log('⚡', 'Speed mode: Blocking images, fonts, tracking (local only)');
+        } else if (IS_SERVER) {
+            log('🖥️', 'Server mode: Full page load for reliability');
         }
         
         // ========================================
         // STEP 1: Navigate to prishtinaticket.net
         // ========================================
         log('📍', 'Navigating to prishtinaticket.net/en ...');
-        // Server uses networkidle0 for reliability, local uses domcontentloaded for speed
-        await page.goto('https://www.prishtinaticket.net/en', { 
-            waitUntil: IS_SERVER ? 'networkidle0' : 'domcontentloaded', 
-            timeout: IS_SERVER ? 45000 : 30000 
-        });
-        log('✅', 'Page loaded!');
+        // Use domcontentloaded for speed - don't wait for all network requests
+        try {
+            await page.goto('https://www.prishtinaticket.net/en', { 
+                waitUntil: 'domcontentloaded', 
+                timeout: 60000 
+            });
+            log('✅', 'Page loaded (DOM ready)');
+            
+            // Give Angular time to bootstrap on slower server
+            if (IS_SERVER) {
+                log('⏳', 'Waiting for Angular to initialize...');
+                await wait(2000);
+            }
+        } catch (navError) {
+            log('⚠️', `Navigation issue: ${navError.message}, retrying...`);
+            await page.goto('https://www.prishtinaticket.net/en', { 
+                waitUntil: 'load', 
+                timeout: 60000 
+            });
+            await wait(3000);
+        }
         
         // 🚀 TURBO: Disable all CSS animations
         if (TURBO_MODE) {
