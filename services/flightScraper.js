@@ -68,7 +68,20 @@ const cityNames = {
 // DEBUG MODE - Set to true to see browser (only works locally, not on server)
 // ========================================
 const DEBUG_MODE = process.env.NODE_ENV !== 'production'; // Auto-detect: false on server, true locally
-const SLOW_MOTION = DEBUG_MODE ? 150 : 0; // milliseconds delay between actions
+
+// ⚡ SPEED MODE - Faster automation
+const SPEED_MODE = true;
+
+// 🚀 TURBO MODE - Maximum speed with direct DOM manipulation
+const TURBO_MODE = true;
+
+const SLOW_MOTION = TURBO_MODE ? 0 : (DEBUG_MODE ? 50 : 0); // milliseconds delay between actions
+
+// ⚡ Wait times - Ultra short in turbo mode
+const WAIT_SHORT = TURBO_MODE ? 50 : (SPEED_MODE ? 100 : 300);
+const WAIT_MEDIUM = TURBO_MODE ? 100 : (SPEED_MODE ? 200 : 500);
+const WAIT_LONG = TURBO_MODE ? 200 : (SPEED_MODE ? 400 : 1000);
+const WAIT_PAGE_LOAD = TURBO_MODE ? 500 : (SPEED_MODE ? 800 : 2000);
 
 /**
  * Log with timestamp and emoji for visibility
@@ -121,17 +134,26 @@ async function searchFlights(searchParams) {
     let browser;
     try {
         // Launch browser (headless on server, visible locally)
-        log('🚀', `Launching browser in ${DEBUG_MODE ? 'VISIBLE' : 'HEADLESS'} mode...`);
+        log('🚀', `Launching browser in ${DEBUG_MODE ? 'VISIBLE' : 'HEADLESS'} mode... ${TURBO_MODE ? '⚡ TURBO' : ''}`);
         browser = await puppeteer.launch({
             headless: DEBUG_MODE ? false : 'new',
             slowMo: SLOW_MOTION,
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, // Use system Chrome if specified
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
                 '--disable-software-rasterizer',
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-sync',
+                '--disable-translate',
+                '--disable-default-apps',
+                '--disable-hang-monitor',
+                '--disable-popup-blocking',
+                '--disable-renderer-backgrounding',
+                '--mute-audio',
                 '--window-size=1400,900',
                 '--window-position=100,100'
             ],
@@ -143,14 +165,59 @@ async function searchFlights(searchParams) {
         await page.setViewport({ width: 1400, height: 900 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         
+        // ⚡ SPEED OPTIMIZATION: Block unnecessary resources
+        if (SPEED_MODE) {
+            await page.setRequestInterception(true);
+            page.on('request', (req) => {
+                const resourceType = req.resourceType();
+                const url = req.url();
+                
+                // Block images, fonts, media, and tracking scripts
+                if (
+                    resourceType === 'image' ||
+                    resourceType === 'font' ||
+                    resourceType === 'media' ||
+                    url.includes('google-analytics') ||
+                    url.includes('facebook') ||
+                    url.includes('hotjar') ||
+                    url.includes('tracking') ||
+                    url.includes('.woff') ||
+                    url.includes('.woff2')
+                ) {
+                    req.abort();
+                } else {
+                    req.continue();
+                }
+            });
+            log('⚡', 'Speed mode: Blocking images, fonts, and tracking scripts');
+        }
+        
         // ========================================
         // STEP 1: Navigate to prishtinaticket.net
         // ========================================
         log('📍', 'Navigating to prishtinaticket.net/en ...');
-        await page.goto('https://www.prishtinaticket.net/en', { waitUntil: 'networkidle2', timeout: 45000 });
+        await page.goto('https://www.prishtinaticket.net/en', { 
+            waitUntil: SPEED_MODE ? 'domcontentloaded' : 'networkidle2', 
+            timeout: 30000 
+        });
         log('✅', 'Page loaded!');
         
-        await wait(3000);
+        // 🚀 TURBO: Disable all CSS animations
+        if (TURBO_MODE) {
+            await page.addStyleTag({
+                content: `
+                    *, *::before, *::after {
+                        animation-duration: 0.001s !important;
+                        animation-delay: 0s !important;
+                        transition-duration: 0.001s !important;
+                        transition-delay: 0s !important;
+                    }
+                `
+            });
+            log('⚡', 'TURBO: Disabled all CSS animations');
+        }
+        
+        await wait(WAIT_PAGE_LOAD);
         
         
         // Try to accept cookies if present
@@ -164,7 +231,7 @@ async function searchFlights(searchParams) {
                     }
                 }
             });
-            await wait(1000);
+            await wait(WAIT_LONG);
         } catch (e) { }
         
         // ========================================
@@ -178,7 +245,7 @@ async function searchFlights(searchParams) {
                 await page.waitForSelector(oneWaySelector, { timeout: 5000 });
                 await page.click(oneWaySelector);
                 log('✅', 'Selected ONE-WAY trip');
-                await wait(500);
+                await wait(WAIT_MEDIUM);
             } catch (e) {
                 log('⚠️', 'One-way selection error: ' + e.message);
                 // Try fallback - click by text
@@ -242,13 +309,13 @@ async function searchFlights(searchParams) {
             
             if (fromInputFound) {
                 log('✅', `Found FROM input: ${fromInputFound}`);
-                await wait(500);
+                await wait(WAIT_MEDIUM);
                 
                 // Type the city name
-                await page.keyboard.type(fromCity, { delay: 100 });
+                await page.keyboard.type(fromCity, { delay: TURBO_MODE ? 10 : 50 });
                 log('✅', `Typed: "${fromCity}"`);
                 
-                await wait(1500); // Wait for dropdown
+                await wait(WAIT_LONG); // Wait for dropdown
                 
                 // Click first dropdown option
                 await page.evaluate(() => {
@@ -258,7 +325,7 @@ async function searchFlights(searchParams) {
                     }
                 });
                 log('✅', 'Selected from dropdown');
-                await wait(500);
+                await wait(WAIT_MEDIUM);
             } else {
                 log('⚠️', 'Could not find FROM input!');
             }
@@ -309,13 +376,13 @@ async function searchFlights(searchParams) {
             
             if (toInputFound) {
                 log('✅', `Found TO input: ${toInputFound}`);
-                await wait(500);
+                await wait(WAIT_MEDIUM);
                 
                 // Type the city name
-                await page.keyboard.type(toCity, { delay: 100 });
+                await page.keyboard.type(toCity, { delay: TURBO_MODE ? 10 : 50 });
                 log('✅', `Typed: "${toCity}"`);
                 
-                await wait(1500); // Wait for dropdown
+                await wait(WAIT_LONG); // Wait for dropdown
                 
                 // Click first dropdown option
                 await page.evaluate(() => {
@@ -325,7 +392,7 @@ async function searchFlights(searchParams) {
                     }
                 });
                 log('✅', 'Selected from dropdown');
-                await wait(500);
+                await wait(WAIT_MEDIUM);
             } else {
                 log('⚠️', 'Could not find TO input!');
             }
@@ -363,7 +430,7 @@ async function searchFlights(searchParams) {
             await page.waitForSelector(datePickerButtonSelector, { timeout: 10000 });
             await page.click(datePickerButtonSelector);
             log('✅', 'Date picker button clicked!');
-            await wait(1000);
+            await wait(WAIT_LONG);
             
             // Helper function to read current month from calendar
             async function getCurrentMonth() {
@@ -410,7 +477,7 @@ async function searchFlights(searchParams) {
                             if (btn) btn.click();
                         });
                     }
-                    await wait(500);
+                    await wait(WAIT_MEDIUM);
                     
                     attempts++;
                 }
@@ -460,10 +527,10 @@ async function searchFlights(searchParams) {
             // Select DEPARTURE date
             log('📅', `Selecting DEPARTURE date: ${depDate.getDate()}/${depDate.getMonth() + 1}/${depDate.getFullYear()}`);
             await navigateToMonth(depDate);
-            await wait(500);
+            await wait(WAIT_MEDIUM);
             await clickDay(depDate.getDate());
             log('✅', `Selected departure day: ${depDate.getDate()}`);
-            await wait(1000);
+            await wait(WAIT_LONG);
             
             // Select RETURN date if round trip (skip for one-way)
             if (tripType === 'oneway') {
@@ -475,19 +542,19 @@ async function searchFlights(searchParams) {
                 if (retDate.getMonth() !== depDate.getMonth() || retDate.getFullYear() !== depDate.getFullYear()) {
                     log('📅', 'Return date is in a different month, navigating...');
                     await navigateToMonth(retDate);
-                    await wait(500);
+                    await wait(WAIT_MEDIUM);
                 }
                 
                 await clickDay(retDate.getDate());
                 log('✅', `Selected return day: ${retDate.getDate()}`);
             }
             
-            await wait(500);
+            await wait(WAIT_MEDIUM);
             
             // Click outside to close the calendar (if still open)
             try {
                 await page.keyboard.press('Escape');
-                await wait(300);
+                await wait(WAIT_SHORT);
             } catch (e) { }
             
         } catch (e) {
@@ -511,7 +578,7 @@ async function searchFlights(searchParams) {
                 await page.waitForSelector(passengerDropdownSelector, { timeout: 10000 });
                 await page.click(passengerDropdownSelector);
                 log('✅', 'Passenger selector opened!');
-                await wait(1500);
+                await wait(WAIT_LONG);
                 
                 // Helper function to click the + button for a passenger type
                 // The overlay ID changes dynamically (cdk-overlay-0, cdk-overlay-17, etc.)
@@ -557,7 +624,7 @@ async function searchFlights(searchParams) {
                         } else {
                             log('⚠️', `Could not click + for ${label}`);
                         }
-                        await wait(400);
+                        await wait(WAIT_MEDIUM);
                     }
                 }
                 
@@ -583,7 +650,7 @@ async function searchFlights(searchParams) {
                 // Click outside to close passenger dropdown
                 log('👥', 'Closing passenger selector...');
                 await page.keyboard.press('Escape');
-                await wait(500);
+                await wait(WAIT_MEDIUM);
                 
                 log('✅', `Passengers set: ${totalAdults} adult(s), ${totalChildren} child(ren), ${totalInfants} infant(s)`);
                 
@@ -613,7 +680,7 @@ async function searchFlights(searchParams) {
                 }
             }, searchButtonSelector);
             
-            await wait(500);
+            await wait(WAIT_MEDIUM);
             
             // Click using evaluate for more reliable clicking
             const clicked = await page.evaluate((sel) => {
@@ -659,8 +726,19 @@ async function searchFlights(searchParams) {
         // ========================================
         // STEP 8: Wait for results to load
         // ========================================
-        log('⏳', 'Waiting for flight results (10 seconds)...');
-        await wait(10000);
+        log('⏳', 'Waiting for flight results...');
+        
+        // 🚀 TURBO: Smart wait - wait for actual results instead of fixed time
+        try {
+            await page.waitForSelector('lib-modern-flight-availability, .flight-card, .flight-result, .no-flights', { 
+                timeout: TURBO_MODE ? 6000 : 15000 
+            });
+            log('✅', 'Flight results loaded!');
+            await wait(WAIT_MEDIUM); // Small buffer for rendering
+        } catch (e) {
+            log('⚠️', 'Timeout waiting for results, continuing anyway...');
+            await wait(TURBO_MODE ? 2000 : 5000);
+        }
         
         // ========================================
         // STEP 9: Extract flight data
@@ -845,9 +923,9 @@ async function searchFlights(searchParams) {
         
         // Keep browser open in debug mode (only locally)
         if (DEBUG_MODE) {
-            log('👀', 'DEBUG: Browser stays open for 10 seconds...');
+            log('👀', 'DEBUG: Browser stays open for 3 seconds...');
             log('👀', 'Blue = Outbound | Green = Return');
-            await wait(10000);
+            await wait(3000);
         }
         
         return {
