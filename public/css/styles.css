@@ -1184,22 +1184,24 @@ body {
 
 /* Mobile Menu Overlay */
 .mobile-overlay {
-    display: none;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 999;
     opacity: 0;
-    transition: opacity var(--duration-normal) var(--ease-out);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity var(--duration-normal) var(--ease-out), visibility var(--duration-normal) var(--ease-out);
 }
 
 .mobile-overlay.show {
     opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 /* Mobile Menu Panel */
 .mobile-menu {
-    display: none;
     position: fixed;
     top: 0;
     right: -280px;
@@ -1210,10 +1212,12 @@ body {
     padding: var(--space-2xl) var(--space-lg);
     transition: right var(--duration-normal) var(--ease-out);
     overflow-y: auto;
+    visibility: hidden;
 }
 
 .mobile-menu.open {
     right: 0;
+    visibility: visible;
 }
 
 .mobile-menu-links {
@@ -1351,11 +1355,6 @@ body.menu-open {
     /* Show hamburger, hide desktop nav */
     .hamburger {
         display: flex;
-    }
-    
-    .mobile-menu,
-    .mobile-overlay {
-        display: block;
     }
     
     .nav-links {
