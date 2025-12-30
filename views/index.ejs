@@ -277,6 +277,28 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+            
+            .booking-form,
+            .login-form {
+                padding: 16px;
+            }
+            
+            .login-form .login-content {
+                min-height: auto;
+            }
+            
+            .login-form .login-links {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+        
+        /* Safe area padding for mobile */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .booking-form,
+            .login-form {
+                padding-bottom: calc(24px + env(safe-area-inset-bottom));
+            }
         }
     </style>
 </head>
@@ -336,7 +358,31 @@
                 </div>
                 <a href="/contact"><%= t.nav_contact.toUpperCase() %></a>
             </div>
+            
+            <!-- Hamburger Menu Button (Mobile) -->
+            <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </nav>
+        
+        <!-- Mobile Menu Overlay -->
+        <div class="mobile-overlay" id="mobileOverlay"></div>
+        
+        <!-- Mobile Menu Panel -->
+        <div class="mobile-menu" id="mobileMenu">
+            <div class="mobile-menu-links">
+                <a href="/"><i class="fas fa-home"></i> Home</a>
+                <a href="#"><i class="fas fa-plane"></i> <%= t.nav_book %></a>
+                <a href="/info/siguria"><i class="fas fa-shield-alt"></i> Siguria</a>
+                <a href="/info/para-udhetimit"><i class="fas fa-clipboard-check"></i> Para Udhëtimit</a>
+                <a href="/info/e-biletat"><i class="fas fa-ticket-alt"></i> E-Biletat</a>
+                <a href="/info/bagazhi"><i class="fas fa-suitcase-rolling"></i> Bagazhi</a>
+                <a href="/info/shendeti"><i class="fas fa-heartbeat"></i> Shëndeti</a>
+                <a href="/contact"><i class="fas fa-envelope"></i> <%= t.nav_contact %></a>
+            </div>
+        </div>
 
         <!-- Booking Form -->
         <div class="booking-container">
@@ -521,7 +567,7 @@
         <div class="destinations-grid">
             <!-- Row 1 -->
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/basel.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/basel.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Basel</span>
                 </div>
@@ -534,7 +580,7 @@
             </a>
 
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/dusseldorf.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/dusseldorf.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Düsseldorf</span>
                 </div>
@@ -547,7 +593,7 @@
             </a>
 
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/munchen.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/munchen.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">München</span>
                 </div>
@@ -561,7 +607,7 @@
 
             <!-- Row 2 -->
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/stuttgart.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/stuttgart.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Stuttgart</span>
                 </div>
@@ -574,7 +620,7 @@
             </a>
 
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/nuremberg.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/nuremberg.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Nürnberg</span>
                 </div>
@@ -587,7 +633,7 @@
             </a>
 
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/bremen.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/bremen.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Bremen</span>
                 </div>
@@ -601,7 +647,7 @@
 
             <!-- Row 3 -->
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/munster.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/munster.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Münster</span>
                 </div>
@@ -614,7 +660,7 @@
             </a>
 
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/vaxjo.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/vaxjo.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Växjö</span>
                 </div>
@@ -627,7 +673,7 @@
             </a>
 
             <a href="#" class="destination-card">
-                <div class="destination-image" style="background-image: url('/images/top-destinations/prishtina.png');">
+                <div class="destination-image" data-bg="/images/top-destinations/prishtina.png">
                     <div class="destination-overlay"></div>
                     <span class="city-label">Prishtina</span>
                 </div>

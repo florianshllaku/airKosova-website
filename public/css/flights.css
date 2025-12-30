@@ -680,6 +680,66 @@
         text-align: center;
         width: 100%;
     }
+    
+    .flights-header .main-nav {
+        padding: var(--space-md);
+    }
+    
+    .flights-main {
+        padding: 0 var(--space-md) 160px;
+        margin-top: var(--space-md);
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-sm);
+        padding: var(--space-md);
+    }
+    
+    .flight-cards {
+        padding: var(--space-sm);
+    }
+    
+    .flight-card {
+        padding: var(--space-md);
+    }
+    
+    .flight-main {
+        flex-wrap: wrap;
+        gap: var(--space-md);
+    }
+    
+    .flight-duration {
+        width: 100%;
+        order: 3;
+        margin-top: var(--space-sm);
+    }
+    
+    .booking-bar {
+        padding: var(--space-md);
+    }
+    
+    .fallback-card {
+        margin: 0 var(--space-md);
+        padding: var(--space-lg);
+    }
+    
+    .trust-badges {
+        flex-direction: column;
+        gap: var(--space-sm);
+    }
+}
+
+/* Safe area padding for iOS */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .booking-bar {
+        padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+    }
+    
+    .flights-main {
+        padding-bottom: calc(160px + env(safe-area-inset-bottom));
+    }
 }
 
 /* =============================================

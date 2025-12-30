@@ -1,7 +1,10 @@
 /**
  * AirKosova - Main JavaScript
- * Minimal, smooth interactions
+ * Minimal, smooth interactions with mobile support
  */
+
+// Detect mobile/touch device
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
 // DOM Elements
 const departureWrapper = document.getElementById('departureWrapper');
@@ -40,12 +43,13 @@ function formatDate(date) {
     return date.toISOString().split('T')[0];
 }
 
-// Custom Select functionality with smooth animations
+// Custom Select functionality with smooth animations and mobile support
 function initCustomSelect(wrapper, display, dropdown, input, isDestination = false) {
     if (!wrapper || !display || !dropdown) return;
     
-    // Toggle dropdown with animation
-    display.addEventListener('click', (e) => {
+    // Toggle dropdown with animation - support both touch and click
+    const toggleDropdown = (e) => {
+        e.preventDefault();
         e.stopPropagation();
         
         // Close other dropdowns first
@@ -56,10 +60,26 @@ function initCustomSelect(wrapper, display, dropdown, input, isDestination = fal
         });
         
         wrapper.classList.toggle('open');
-    });
+        
+        // On mobile, scroll dropdown into view
+        if (isTouchDevice && wrapper.classList.contains('open')) {
+            setTimeout(() => {
+                dropdown.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+    };
+    
+    // Use touchend for mobile, click for desktop
+    if (isTouchDevice) {
+        display.addEventListener('touchend', toggleDropdown, { passive: false });
+    }
+    display.addEventListener('click', toggleDropdown);
 
     // Handle option selection with smooth feedback
-    dropdown.addEventListener('click', (e) => {
+    const selectOption = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const option = e.target.closest('.select-option');
         if (!option) return;
 
@@ -87,7 +107,13 @@ function initCustomSelect(wrapper, display, dropdown, input, isDestination = fal
         if (!isDestination) {
             updateDestinations(value);
         }
-    });
+    };
+    
+    // Use touchend for mobile, click for desktop
+    if (isTouchDevice) {
+        dropdown.addEventListener('touchend', selectOption, { passive: false });
+    }
+    dropdown.addEventListener('click', selectOption);
 }
 
 // Fetch destinations from API based on departure city
@@ -308,14 +334,87 @@ function handleDepartureDateChange() {
     }
 }
 
-// Close dropdowns when clicking outside
-document.addEventListener('click', (e) => {
+// Close dropdowns when clicking/touching outside
+function closeDropdowns(e) {
     if (!e.target.closest('.custom-select')) {
         document.querySelectorAll('.custom-select.open').forEach(el => {
             el.classList.remove('open');
         });
     }
-});
+}
+
+document.addEventListener('click', closeDropdowns);
+if (isTouchDevice) {
+    document.addEventListener('touchend', closeDropdowns);
+}
+
+// Mobile hamburger menu toggle
+function initMobileMenu() {
+    const hamburger = document.getElementById('hamburgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const mobileOverlay = document.getElementById('mobileOverlay');
+    
+    if (!hamburger || !mobileMenu) return;
+    
+    const toggleMenu = () => {
+        hamburger.classList.toggle('active');
+        mobileMenu.classList.toggle('open');
+        mobileOverlay.classList.toggle('show');
+        document.body.classList.toggle('menu-open');
+    };
+    
+    hamburger.addEventListener('click', toggleMenu);
+    if (mobileOverlay) {
+        mobileOverlay.addEventListener('click', toggleMenu);
+    }
+    
+    // Close menu when clicking a link
+    mobileMenu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+            hamburger.classList.remove('active');
+            mobileMenu.classList.remove('open');
+            mobileOverlay.classList.remove('show');
+            document.body.classList.remove('menu-open');
+        });
+    });
+}
+
+// Lazy load images with IntersectionObserver
+function initLazyLoading() {
+    const lazyImages = document.querySelectorAll('.destination-image[data-bg]');
+    
+    if ('IntersectionObserver' in window) {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    const bgUrl = img.dataset.bg;
+                    
+                    // Create a new image to preload
+                    const tempImg = new Image();
+                    tempImg.onload = () => {
+                        img.style.backgroundImage = `url('${bgUrl}')`;
+                        img.classList.add('loaded');
+                    };
+                    tempImg.src = bgUrl;
+                    
+                    observer.unobserve(img);
+                }
+            });
+        }, {
+            rootMargin: '100px 0px', // Start loading 100px before visible
+            threshold: 0.01
+        });
+        
+        lazyImages.forEach(img => imageObserver.observe(img));
+    } else {
+        // Fallback for older browsers
+        lazyImages.forEach(img => {
+            img.style.backgroundImage = `url('${img.dataset.bg}')`;
+            img.classList.add('loaded');
+        });
+    }
+}
 
 // Smooth page load transition
 document.addEventListener('DOMContentLoaded', () => {
@@ -350,6 +449,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (returnDateGroup) {
         returnDateGroup.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
     }
+    
+    // Initialize mobile menu
+    initMobileMenu();
+    
+    // Initialize lazy loading for images
+    initLazyLoading();
 });
 
 // Event Listeners

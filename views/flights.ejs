@@ -39,7 +39,28 @@
                 <a href="#"><i class="fas fa-plane"></i> REZERVO</a>
                 <a href="/contact">KONTAKT</a>
             </div>
+            
+            <!-- Hamburger Menu Button (Mobile) -->
+            <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </nav>
+        
+        <!-- Mobile Menu Overlay -->
+        <div class="mobile-overlay" id="mobileOverlay"></div>
+        
+        <!-- Mobile Menu Panel -->
+        <div class="mobile-menu" id="mobileMenu">
+            <div class="mobile-menu-links">
+                <a href="/"><i class="fas fa-home"></i> Home</a>
+                <a href="#"><i class="fas fa-plane"></i> Rezervo</a>
+                <a href="/info/siguria"><i class="fas fa-shield-alt"></i> Siguria</a>
+                <a href="/info/bagazhi"><i class="fas fa-suitcase-rolling"></i> Bagazhi</a>
+                <a href="/contact"><i class="fas fa-envelope"></i> Kontakt</a>
+            </div>
+        </div>
     </header>
 
     <!-- Search Summary -->
@@ -424,10 +445,41 @@
             window.location.href = '/auth';
         });
 
+        // Mobile menu
+        function initMobileMenu() {
+            const hamburger = document.getElementById('hamburgerBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const mobileOverlay = document.getElementById('mobileOverlay');
+            
+            if (!hamburger || !mobileMenu) return;
+            
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                mobileMenu.classList.toggle('open');
+                mobileOverlay.classList.toggle('show');
+                document.body.classList.toggle('menu-open');
+            };
+            
+            hamburger.addEventListener('click', toggleMenu);
+            if (mobileOverlay) {
+                mobileOverlay.addEventListener('click', toggleMenu);
+            }
+            
+            mobileMenu.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    hamburger.classList.remove('active');
+                    mobileMenu.classList.remove('open');
+                    mobileOverlay.classList.remove('show');
+                    document.body.classList.remove('menu-open');
+                });
+            });
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             updateHeader();
             searchFlights();
+            initMobileMenu();
         });
     </script>
 </body>
