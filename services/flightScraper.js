@@ -56,8 +56,8 @@ const CONFIG = {
     pageTimeout: 20000,
     resultWaitTimeout: 8000,
     
-    // Wait times (ms) - Optimized for speed
-    waitForRender: 1000,      // Wait for Angular to render results
+    // Wait times (ms) - Balanced for speed and reliability
+    waitForRender: 1500,      // Wait for Angular to render results
     waitBetweenRetries: 500,
     
     // Retry settings
@@ -291,11 +291,16 @@ async function searchFlights(searchParams, performanceLogger = null) {
         
         const page = await browser.newPage();
         
-        // Block unnecessary resources for speed
+        // Block only heavy resources (keep stylesheets - Angular needs them)
         await page.setRequestInterception(true);
         page.on('request', (req) => {
             const type = req.resourceType();
-            if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+            const url = req.url();
+            // Only block images, fonts, media, and tracking scripts
+            if (['image', 'font', 'media'].includes(type) || 
+                url.includes('google-analytics') || 
+                url.includes('facebook') ||
+                url.includes('hotjar')) {
                 req.abort();
             } else {
                 req.continue();
@@ -331,6 +336,18 @@ async function searchFlights(searchParams, performanceLogger = null) {
         // ========================================
         perf.startStep('wait_for_results');
         
+        // Wait for Angular app to fully load
+        try {
+            await page.waitForFunction(() => {
+                // Check if Angular has finished loading
+                return document.querySelector('app-root') && 
+                       document.querySelector('app-booking');
+            }, { timeout: CONFIG.resultWaitTimeout });
+            log('success', 'Angular app loaded');
+        } catch (e) {
+            log('warn', 'Angular app load timeout');
+        }
+        
         // Wait for the results container
         const resultsSelector = 'lib-modern-flight-availability, app-availabilities, .booking-flights__body';
         
@@ -341,19 +358,29 @@ async function searchFlights(searchParams, performanceLogger = null) {
             // Wait for Angular to render flights
             await wait(CONFIG.waitForRender);
             
-            // Optional: Wait for actual flight times to appear
-            try {
-                await page.waitForFunction(() => {
-                    const text = document.body?.innerText || '';
-                    return text.match(/\d{2}:\d{2}/);
-                }, { timeout: 3000 });
-            } catch (e) {
-                log('warn', 'No flight times detected');
+            // Wait for actual flight times to appear (with retry)
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    await page.waitForFunction(() => {
+                        const containers = document.querySelectorAll('lib-modern-flight-availability');
+                        if (containers.length === 0) return false;
+                        const text = containers[0].textContent || '';
+                        return text.match(/\d{2}:\d{2}/);
+                    }, { timeout: 2000 });
+                    log('success', 'Flight times detected');
+                    break;
+                } catch (e) {
+                    if (attempt < 2) {
+                        await wait(500);
+                    } else {
+                        log('warn', 'No flight times after retries');
+                    }
+                }
             }
             
         } catch (e) {
             log('warn', 'Results container timeout, attempting extraction anyway');
-            await wait(1000);
+            await wait(2000);
         }
         
         perf.endStep('wait_for_results');
@@ -373,6 +400,35 @@ async function searchFlights(searchParams, performanceLogger = null) {
         });
         
         log('success', `Extracted: ${flightData.outbound.flights.length} outbound, ${flightData.return.flights.length} return`);
+        
+        // If no flights found, log debug info
+        if (flightData.outbound.flights.length === 0 && flightData.return.flights.length === 0) {
+            log('warn', 'No flights extracted - checking page content...');
+            
+            // Get page debug info
+            const debugInfo = await page.evaluate(() => {
+                const text = document.body?.innerText || '';
+                return {
+                    hasAppRoot: !!document.querySelector('app-root'),
+                    hasAppBooking: !!document.querySelector('app-booking'),
+                    hasAvailabilities: !!document.querySelector('app-availabilities'),
+                    hasFlightContainers: document.querySelectorAll('lib-modern-flight-availability').length,
+                    timesFound: (text.match(/\d{2}:\d{2}/g) || []).slice(0, 6),
+                    pricesFound: (text.match(/[€CHF]\s*\d+/g) || []).slice(0, 4),
+                    pageTitle: document.title,
+                    bodyPreview: text.substring(0, 300)
+                };
+            });
+            
+            log('warn', `Debug: app-root=${debugInfo.hasAppRoot}, app-booking=${debugInfo.hasAppBooking}`);
+            log('warn', `Debug: availabilities=${debugInfo.hasAvailabilities}, containers=${debugInfo.hasFlightContainers}`);
+            log('warn', `Debug: times=${debugInfo.timesFound.join(',')}, prices=${debugInfo.pricesFound.join(',')}`);
+            
+            // If we found times/prices but extraction failed, there might be a selector issue
+            if (debugInfo.timesFound.length > 0) {
+                log('warn', 'Times found on page but extraction failed - selector issue?');
+            }
+        }
         
         // Log flight details
         flightData.outbound.flights.forEach((f, i) => {
