@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
-const { searchFlights, airportCodes } = require('./services/flightScraper');
+const { searchFlights, airportCodes, PerformanceLogger } = require('./services/flightScraper');
 const { supabase } = require('./config/supabase');
 const { getTranslations } = require('./config/translations');
 
@@ -228,14 +228,24 @@ app.get('/api/departures', (req, res) => {
     res.json({ departures });
 });
 
-// Search flights endpoint - triggers real scraping
+// Search flights endpoint - triggers real scraping with performance tracking
 app.post('/api/search', async (req, res) => {
     const { departure, destination, departureDate, returnDate, adults, children, infants, tripType } = req.body;
     
+    // ⏱️ Create performance logger for this search
+    const perf = new PerformanceLogger();
+    perf.setSearchParams({ departure, destination, departureDate, returnDate, adults, children, infants, tripType });
+    
+    // ⏱️ TIMING: API Request Received
+    perf.startStep('api_request_received');
     console.log('🔍 Flight search request:', { departure, destination, departureDate, returnDate, adults, children, infants, tripType });
+    perf.endStep('api_request_received');
     
     try {
-        // Call the scraper
+        // ⏱️ TIMING: Scraper Execution
+        perf.startStep('scraper_execution');
+        
+        // Call the scraper with the performance logger
         const results = await searchFlights({
             departure,
             destination,
@@ -245,14 +255,86 @@ app.post('/api/search', async (req, res) => {
             children,
             infants,
             tripType
+        }, perf);
+        
+        perf.endStep('scraper_execution');
+        
+        // ⏱️ TIMING: API Response Sent
+        perf.startStep('api_response_sent');
+        
+        // Merge timing data from scraper's internal logger if available
+        const scraperPerf = results.performanceLogger;
+        if (scraperPerf) {
+            // Copy over scraper timing steps
+            for (const [key, value] of Object.entries(scraperPerf.timings)) {
+                if (!perf.timings[key]) {
+                    perf.timings[key] = value;
+                    perf.steps.push({ name: key, duration: value.duration, details: value.details });
+                }
+            }
+        }
+        
+        // Save performance report
+        try {
+            await perf.saveReport({
+                results: {
+                    success: results.success,
+                    outboundCount: results.flights?.outbound?.flights?.length || 0,
+                    returnCount: results.flights?.return?.flights?.length || 0
+                }
+            });
+        } catch (saveError) {
+            console.error('Failed to save performance report:', saveError.message);
+        }
+        
+        perf.endStep('api_response_sent');
+        
+        // Remove the performanceLogger from response (it's not serializable and large)
+        const { performanceLogger, ...responseData } = results;
+        
+        // Add timing summary to response for frontend
+        const timingSummary = {
+            searchId: perf.searchId,
+            totalTimeMs: perf.getTotalTime(),
+            breakdown: {
+                browserLaunch: perf.getStepDuration('browser_launch'),
+                pageNavigation: perf.getStepDuration('page_navigation'),
+                formFilling: perf.getStepDuration('fill_departure') + 
+                             perf.getStepDuration('fill_destination') + 
+                             perf.getStepDuration('select_dates') + 
+                             perf.getStepDuration('set_passengers') +
+                             perf.getStepDuration('select_trip_type'),
+                clickSearch: perf.getStepDuration('click_search'),
+                waitForResults: perf.getStepDuration('wait_for_results'),
+                dataExtraction: perf.getStepDuration('extract_flight_data'),
+                browserClose: perf.getStepDuration('browser_close')
+            }
+        };
+        
+        res.json({
+            ...responseData,
+            timing: timingSummary
         });
         
-        res.json(results);
     } catch (error) {
         console.error('Search error:', error);
+        
+        // Still save the performance report on error
+        try {
+            await perf.saveReport({
+                results: { success: false, error: error.message }
+            });
+        } catch (saveError) {
+            console.error('Failed to save performance report:', saveError.message);
+        }
+        
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message,
+            timing: {
+                searchId: perf.searchId,
+                totalTimeMs: perf.getTotalTime()
+            }
         });
     }
 });
@@ -492,6 +574,80 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 // ========================================
 // OTHER API ENDPOINTS
 // ========================================
+
+// Frontend timing reporting endpoint
+app.post('/api/timing/frontend', async (req, res) => {
+    const { searchId, timing } = req.body;
+    
+    if (!searchId || !timing) {
+        return res.json({ success: false, message: 'Missing searchId or timing' });
+    }
+    
+    const fs = require('fs').promises;
+    const path = require('path');
+    
+    try {
+        const logsDir = path.join(__dirname, 'logs', 'performance');
+        const filepath = path.join(logsDir, `${searchId}.json`);
+        
+        // Read existing report
+        const existingData = await fs.readFile(filepath, 'utf8');
+        const report = JSON.parse(existingData);
+        
+        // Add frontend timing
+        report.frontendTiming = timing;
+        report.breakdown.frontendApiRoundTrip = timing.apiRoundTrip;
+        report.breakdown.frontendRenderTime = timing.renderTime;
+        report.breakdown.frontendTotalTime = timing.totalFrontendTime;
+        report.breakdownFormatted.frontendApiRoundTrip = formatDuration(timing.apiRoundTrip);
+        report.breakdownFormatted.frontendRenderTime = formatDuration(timing.renderTime);
+        report.breakdownFormatted.frontendTotalTime = formatDuration(timing.totalFrontendTime);
+        
+        // Update the total time to include frontend
+        report.summary.totalWithFrontendMs = report.summary.totalDurationMs + timing.renderTime;
+        report.summary.totalWithFrontendFormatted = formatDuration(report.summary.totalWithFrontendMs);
+        
+        // Save updated report
+        await fs.writeFile(filepath, JSON.stringify(report, null, 2));
+        
+        // Also update the summary text file
+        const summaryPath = path.join(logsDir, `${searchId}_summary.txt`);
+        try {
+            let summary = await fs.readFile(summaryPath, 'utf8');
+            // Insert frontend timing before the summary section
+            const frontendSection = `
+PHASE 6: FRONTEND DISPLAY
+  ├─ API Round Trip:           ${formatDuration(timing.apiRoundTrip)}
+  ├─ Render Flights:           ${formatDuration(timing.renderTime)}
+  └─ Total Frontend:           ${formatDuration(timing.totalFrontendTime)}
+`;
+            summary = summary.replace(
+                'PHASE 6: FRONTEND DISPLAY\n  └─ Display Time:             —',
+                frontendSection
+            );
+            await fs.writeFile(summaryPath, summary);
+        } catch (e) {
+            // Summary file might not exist, that's ok
+        }
+        
+        console.log(`📊 Updated performance report with frontend timing: ${searchId}`);
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('Error updating timing report:', error.message);
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// Helper function for duration formatting
+function formatDuration(ms) {
+    if (!ms && ms !== 0) return '—';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+    const minutes = Math.floor(ms / 60000);
+    const seconds = ((ms % 60000) / 1000).toFixed(2);
+    return `${minutes}m ${seconds}s`;
+}
 
 // Quick search endpoint (returns URL to redirect to prishtinaticket.net)
 app.get('/api/quick-search', (req, res) => {

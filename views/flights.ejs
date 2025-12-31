@@ -179,6 +179,15 @@
         // Selection state
         let selectedOutbound = null;
         let selectedReturn = null;
+        
+        // Performance tracking
+        const frontendTiming = {
+            pageLoadStart: performance.now(),
+            apiCallStart: null,
+            apiCallEnd: null,
+            renderStart: null,
+            renderEnd: null
+        };
 
         // Format date for display
         function formatDate(dateStr) {
@@ -371,6 +380,9 @@
         async function searchFlights() {
             updateHeader();
             
+            // ⏱️ Track API call timing
+            frontendTiming.apiCallStart = performance.now();
+            
             try {
                 const response = await fetch('/api/search', {
                     method: 'POST',
@@ -380,13 +392,27 @@
                 
                 const data = await response.json();
                 
+                // ⏱️ Track API call end
+                frontendTiming.apiCallEnd = performance.now();
+                
+                // ⏱️ Track render start
+                frontendTiming.renderStart = performance.now();
+                
                 document.getElementById('loadingState').style.display = 'none';
                 document.getElementById('flightsResults').style.display = 'block';
                 
                 renderFlights(data);
                 
+                // ⏱️ Track render end
+                frontendTiming.renderEnd = performance.now();
+                
+                // Display and report timing
+                displayTimingInfo(data.timing);
+                
             } catch (error) {
                 console.error('Search error:', error);
+                frontendTiming.apiCallEnd = performance.now();
+                
                 document.getElementById('loadingState').style.display = 'none';
                 document.getElementById('flightsResults').style.display = 'block';
                 
@@ -404,6 +430,133 @@
                         </div>
                     `;
                 }
+            }
+        }
+        
+        // Display timing information
+        function displayTimingInfo(backendTiming) {
+            const apiTime = frontendTiming.apiCallEnd - frontendTiming.apiCallStart;
+            const renderTime = frontendTiming.renderEnd - frontendTiming.renderStart;
+            const totalFrontendTime = frontendTiming.renderEnd - frontendTiming.pageLoadStart;
+            
+            // Create timing panel
+            const timingPanel = document.createElement('div');
+            timingPanel.className = 'timing-panel';
+            timingPanel.innerHTML = `
+                <div class="timing-header">
+                    <span><i class="fas fa-stopwatch"></i> Performance Timing</span>
+                    <button class="timing-toggle" onclick="toggleTimingDetails()">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="timing-summary">
+                    <span class="timing-total">Total: <strong>${formatTime(backendTiming?.totalTimeMs || apiTime)}</strong></span>
+                    <span class="timing-id">ID: ${backendTiming?.searchId || 'N/A'}</span>
+                </div>
+                <div class="timing-details" id="timingDetails" style="display: none;">
+                    <div class="timing-section">
+                        <h4><i class="fas fa-server"></i> Backend (Scraper)</h4>
+                        <div class="timing-row">
+                            <span>Browser Launch</span>
+                            <span>${formatTime(backendTiming?.breakdown?.browserLaunch)}</span>
+                        </div>
+                        <div class="timing-row">
+                            <span>Page Navigation</span>
+                            <span>${formatTime(backendTiming?.breakdown?.pageNavigation)}</span>
+                        </div>
+                        <div class="timing-row">
+                            <span>Form Filling</span>
+                            <span>${formatTime(backendTiming?.breakdown?.formFilling)}</span>
+                        </div>
+                        <div class="timing-row">
+                            <span>Click Search</span>
+                            <span>${formatTime(backendTiming?.breakdown?.clickSearch)}</span>
+                        </div>
+                        <div class="timing-row highlight">
+                            <span>Wait for Results</span>
+                            <span>${formatTime(backendTiming?.breakdown?.waitForResults)}</span>
+                        </div>
+                        <div class="timing-row">
+                            <span>Data Extraction</span>
+                            <span>${formatTime(backendTiming?.breakdown?.dataExtraction)}</span>
+                        </div>
+                        <div class="timing-row">
+                            <span>Browser Close</span>
+                            <span>${formatTime(backendTiming?.breakdown?.browserClose)}</span>
+                        </div>
+                    </div>
+                    <div class="timing-section">
+                        <h4><i class="fas fa-desktop"></i> Frontend</h4>
+                        <div class="timing-row">
+                            <span>API Round Trip</span>
+                            <span>${formatTime(apiTime)}</span>
+                        </div>
+                        <div class="timing-row">
+                            <span>Render Flights</span>
+                            <span>${formatTime(renderTime)}</span>
+                        </div>
+                        <div class="timing-row highlight">
+                            <span>Total Frontend</span>
+                            <span>${formatTime(totalFrontendTime)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after search summary
+            const searchSummary = document.querySelector('.search-summary');
+            if (searchSummary) {
+                searchSummary.after(timingPanel);
+            }
+            
+            // Also send timing to server for logging
+            reportFrontendTiming(backendTiming?.searchId, {
+                apiRoundTrip: apiTime,
+                renderTime: renderTime,
+                totalFrontendTime: totalFrontendTime
+            });
+            
+            // Console log for debugging
+            console.log('⏱️ Performance Timing:', {
+                backend: backendTiming,
+                frontend: {
+                    apiRoundTrip: `${apiTime.toFixed(0)}ms`,
+                    renderTime: `${renderTime.toFixed(0)}ms`,
+                    totalFrontend: `${totalFrontendTime.toFixed(0)}ms`
+                }
+            });
+        }
+        
+        function formatTime(ms) {
+            if (ms === undefined || ms === null) return '—';
+            if (ms < 1000) return `${Math.round(ms)}ms`;
+            return `${(ms / 1000).toFixed(2)}s`;
+        }
+        
+        function toggleTimingDetails() {
+            const details = document.getElementById('timingDetails');
+            const icon = document.querySelector('.timing-toggle i');
+            if (details.style.display === 'none') {
+                details.style.display = 'block';
+                icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                details.style.display = 'none';
+                icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        }
+        
+        // Report frontend timing back to server
+        async function reportFrontendTiming(searchId, timing) {
+            if (!searchId) return;
+            
+            try {
+                await fetch('/api/timing/frontend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ searchId, timing })
+                });
+            } catch (e) {
+                console.log('Could not report frontend timing:', e.message);
             }
         }
 

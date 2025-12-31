@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const PerformanceLogger = require('./performanceLogger');
 
 // Airport codes mapping
 const airportCodes = {
@@ -103,8 +104,12 @@ function wait(ms) {
 /**
  * Search for flights on prishtinaticket.net using MANUAL FORM FILLING
  */
-async function searchFlights(searchParams) {
+async function searchFlights(searchParams, performanceLogger = null) {
     const { departure, destination, departureDate, returnDate, adults = 1, children = 0, infants = 0, tripType = 'roundtrip' } = searchParams;
+    
+    // Initialize performance logger if not provided
+    const perf = performanceLogger || new PerformanceLogger();
+    perf.setSearchParams(searchParams);
     
     // Get airport codes
     const fromCode = airportCodes[departure] || departure;
@@ -135,7 +140,8 @@ async function searchFlights(searchParams) {
     
     let browser;
     try {
-        // Launch browser (headless on server, visible locally)
+        // ⏱️ TIMING: Browser Launch
+        perf.startStep('browser_launch');
         log('🚀', `Launching browser in ${DEBUG_MODE ? 'VISIBLE' : 'HEADLESS'} mode... ${TURBO_MODE ? '⚡ TURBO' : ''}`);
         browser = await puppeteer.launch({
             headless: DEBUG_MODE ? false : 'new',
@@ -166,6 +172,7 @@ async function searchFlights(searchParams) {
         const page = await browser.newPage();
         await page.setViewport({ width: 1400, height: 900 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        perf.endStep('browser_launch', { headless: !DEBUG_MODE, turboMode: TURBO_MODE });
         
         // ⚡ SPEED OPTIMIZATION: Block unnecessary resources
         // On server, disable blocking to ensure maximum compatibility
@@ -198,6 +205,8 @@ async function searchFlights(searchParams) {
         // ========================================
         // STEP 1: Navigate to prishtinaticket.net
         // ========================================
+        // ⏱️ TIMING: Page Navigation
+        perf.startStep('page_navigation');
         log('📍', 'Navigating to prishtinaticket.net/en ...');
         // Use domcontentloaded for speed - don't wait for all network requests
         try {
@@ -220,6 +229,7 @@ async function searchFlights(searchParams) {
             });
             await wait(3000);
         }
+        perf.endStep('page_navigation', { url: 'https://www.prishtinaticket.net/en' });
         
         // 🚀 TURBO: Disable all CSS animations
         if (TURBO_MODE) {
@@ -256,6 +266,8 @@ async function searchFlights(searchParams) {
         // ========================================
         // STEP 2: Select trip type (ONE-WAY if needed)
         // ========================================
+        // ⏱️ TIMING: Trip Type Selection
+        perf.startStep('select_trip_type');
         if (tripType === 'oneway') {
             log('🔄', 'Selecting ONE-WAY trip...');
             const oneWaySelector = '#mat-tab-group-0-content-0 > div > lib-search-form > div > div.row.mb-1 > div > lib-radio > lib-form-field-wrapper > div > div > div > div:nth-child(2) > label';
@@ -282,10 +294,13 @@ async function searchFlights(searchParams) {
         } else {
             log('🔄', 'Using default ROUND-TRIP');
         }
+        perf.endStep('select_trip_type', { tripType });
         
         // ========================================
         // STEP 3: Enter "Flying From" city
         // ========================================
+        // ⏱️ TIMING: Fill Departure
+        perf.startStep('fill_departure');
         log('✈️', `Entering departure city: ${fromCity}`);
         
         // Find the FROM input dynamically (IDs change on each page load)
@@ -352,10 +367,13 @@ async function searchFlights(searchParams) {
         } catch (e) {
             log('⚠️', 'From input error: ' + e.message);
         }
+        perf.endStep('fill_departure', { city: fromCity, code: fromCode });
         
         // ========================================
         // STEP 4: Enter "Flying To" city
         // ========================================
+        // ⏱️ TIMING: Fill Destination
+        perf.startStep('fill_destination');
         log('🛬', `Entering destination city: ${toCity}`);
         
         try {
@@ -419,10 +437,13 @@ async function searchFlights(searchParams) {
         } catch (e) {
             log('⚠️', 'To input error: ' + e.message);
         }
+        perf.endStep('fill_destination', { city: toCity, code: toCode });
         
         // ========================================
         // STEP 5: Select dates
         // ========================================
+        // ⏱️ TIMING: Select Dates
+        perf.startStep('select_dates');
         log('📅', 'Opening date picker...');
         
         // Different selectors for ONE-WAY vs ROUND-TRIP
@@ -580,10 +601,13 @@ async function searchFlights(searchParams) {
             log('⚠️', 'Date selection error: ' + e.message);
             console.error(e);
         }
+        perf.endStep('select_dates', { departureDate: depDate.toISOString(), returnDate: retDate?.toISOString() });
         
         // ========================================
         // STEP 6: Add passengers if needed
         // ========================================
+        // ⏱️ TIMING: Set Passengers
+        perf.startStep('set_passengers');
         if (totalAdults > 1 || totalChildren > 0 || totalInfants > 0) {
             log('👥', 'Adjusting passenger count...');
             log('👥', `Need: ${totalAdults} adult(s), ${totalChildren} child(ren), ${totalInfants} infant(s)`);
@@ -678,11 +702,13 @@ async function searchFlights(searchParams) {
                 console.error(e);
             }
         }
-        
+        perf.endStep('set_passengers', { adults: totalAdults, children: totalChildren, infants: totalInfants });
         
         // ========================================
         // STEP 7: Click Search button
         // ========================================
+        // ⏱️ TIMING: Click Search
+        perf.startStep('click_search');
         log('🔍', 'Clicking SEARCH button...');
         
         const searchButtonSelector = '#mat-tab-group-0-content-0 > div > lib-search-form > div > div:nth-child(2) > div.col-12.col-xl-7.order-1.xl\\:order-none > div > div.col-12.col-xl-2.relative > lib-button > button';
@@ -741,10 +767,13 @@ async function searchFlights(searchParams) {
                 log('❌', 'Could not click search button!');
             }
         }
+        perf.endStep('click_search');
         
         // ========================================
         // STEP 8: Wait for results to load
         // ========================================
+        // ⏱️ TIMING: Wait for Results
+        perf.startStep('wait_for_results');
         log('⏳', 'Waiting for flight results...');
         
         // 🚀 Smart wait - wait for actual results instead of fixed time
@@ -762,10 +791,13 @@ async function searchFlights(searchParams) {
             // Fallback: just wait a bit longer on server
             await wait(IS_SERVER ? 5000 : 2000);
         }
+        perf.endStep('wait_for_results');
         
         // ========================================
         // STEP 9: Extract flight data
         // ========================================
+        // ⏱️ TIMING: Extract Flight Data
+        perf.startStep('extract_flight_data');
         log('📊', 'Extracting flight data...');
         
         const outboundSelector = 'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(1) > div > div.space-y-5';
@@ -944,12 +976,21 @@ async function searchFlights(searchParams) {
             console.log(`   ${i + 1}. ${f.departureTime} → ${f.arrivalTime} | ${f.duration} | CHF ${f.price}`);
         });
         
+        // End data extraction timing
+        perf.endStep('extract_flight_data', { 
+            outboundFlightsFound: flightData.outbound.flights.length,
+            returnFlightsFound: flightData.return.flights.length
+        });
+        
         // Keep browser open in debug mode (only locally)
         if (DEBUG_MODE) {
             log('👀', 'DEBUG: Browser stays open for 3 seconds...');
             log('👀', 'Blue = Outbound | Green = Return');
             await wait(3000);
         }
+        
+        // ⏱️ Print performance summary
+        perf.printSummary();
         
         return {
             success: true,
@@ -976,7 +1017,8 @@ async function searchFlights(searchParams) {
                     flights: flightData.return.flights
                 },
                 currency: 'CHF'
-            }
+            },
+            performanceLogger: perf
         };
         
     } catch (error) {
@@ -989,17 +1031,22 @@ async function searchFlights(searchParams) {
             flights: {
                 outbound: { flights: [] },
                 return: { flights: [] }
-            }
+            },
+            performanceLogger: perf
         };
     } finally {
         if (browser) {
+            // ⏱️ TIMING: Browser Close
+            perf.startStep('browser_close');
             log('🔚', 'Closing browser...');
             await browser.close();
+            perf.endStep('browser_close');
         }
     }
 }
 
 module.exports = {
     searchFlights,
-    airportCodes
+    airportCodes,
+    PerformanceLogger
 };
