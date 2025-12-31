@@ -274,17 +274,22 @@ app.post('/api/search', async (req, res) => {
             }
         }
         
-        // Save performance report
-        try {
-            await perf.saveReport({
-                results: {
-                    success: results.success,
-                    outboundCount: results.flights?.outbound?.flights?.length || 0,
-                    returnCount: results.flights?.return?.flights?.length || 0
+        // Save performance report (only in development or if explicitly enabled)
+        if (process.env.NODE_ENV !== 'production' || process.env.SAVE_PERF_LOGS === 'true') {
+            try {
+                await perf.saveReport({
+                    results: {
+                        success: results.success,
+                        outboundCount: results.flights?.outbound?.flights?.length || 0,
+                        returnCount: results.flights?.return?.flights?.length || 0
+                    }
+                });
+            } catch (saveError) {
+                // Silently ignore in production
+                if (process.env.NODE_ENV !== 'production') {
+                    console.error('Failed to save performance report:', saveError.message);
                 }
-            });
-        } catch (saveError) {
-            console.error('Failed to save performance report:', saveError.message);
+            }
         }
         
         perf.endStep('api_response_sent');
@@ -319,13 +324,15 @@ app.post('/api/search', async (req, res) => {
     } catch (error) {
         console.error('Search error:', error);
         
-        // Still save the performance report on error
-        try {
-            await perf.saveReport({
-                results: { success: false, error: error.message }
-            });
-        } catch (saveError) {
-            console.error('Failed to save performance report:', saveError.message);
+        // Save performance report on error (only in development)
+        if (process.env.NODE_ENV !== 'production' || process.env.SAVE_PERF_LOGS === 'true') {
+            try {
+                await perf.saveReport({
+                    results: { success: false, error: error.message }
+                });
+            } catch (saveError) {
+                // Silently ignore
+            }
         }
         
         res.status(500).json({
@@ -577,6 +584,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
 // Frontend timing reporting endpoint
 app.post('/api/timing/frontend', async (req, res) => {
+    // Skip in production unless explicitly enabled
+    if (process.env.NODE_ENV === 'production' && process.env.SAVE_PERF_LOGS !== 'true') {
+        return res.json({ success: true, message: 'Logging disabled in production' });
+    }
+    
     const { searchId, timing } = req.body;
     
     if (!searchId || !timing) {

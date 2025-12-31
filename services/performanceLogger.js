@@ -336,9 +336,12 @@ class PerformanceLogger {
     }
 
     /**
-     * Print a quick console summary
+     * Print a quick console summary (skipped in production)
      */
     printSummary() {
+        // Skip in production
+        if (process.env.NODE_ENV === 'production') return;
+        
         const report = this.generateReport();
         
         console.log('\n' + '═'.repeat(60));
@@ -348,10 +351,9 @@ class PerformanceLogger {
         console.log('');
         console.log('Breakdown:');
         console.log(`  • Browser Launch:    ${report.breakdownFormatted.browserLaunch}`);
-        console.log(`  • Page Navigation:   ${report.breakdownFormatted.pageNavigation}`);
-        console.log(`  • Form Filling:      ${report.breakdownFormatted.formFilling}`);
-        console.log(`  • Search & Wait:     ${this.formatDuration((report.breakdown.searchClick || 0) + (report.breakdown.waitForResults || 0))}`);
-        console.log(`  • Data Extraction:   ${report.breakdownFormatted.dataExtraction}`);
+        console.log(`  • Direct Navigation: ${report.breakdownFormatted.directNavigation || report.breakdownFormatted.pageNavigation}`);
+        console.log(`  • Wait for Results:  ${report.breakdownFormatted.waitForResults}`);
+        console.log(`  • Data Extraction:   ${report.breakdownFormatted.extractData || report.breakdownFormatted.dataExtraction}`);
         console.log('═'.repeat(60) + '\n');
     }
 }

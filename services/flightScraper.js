@@ -1,7 +1,17 @@
+/**
+ * AirKosova Flight Scraper - Production Version
+ * Optimized for speed using Direct URL navigation
+ * Target: ~2-3 seconds per search
+ */
+
 const puppeteer = require('puppeteer');
 const PerformanceLogger = require('./performanceLogger');
+const fs = require('fs');
+const path = require('path');
 
-// Airport codes mapping
+// ========================================
+// AIRPORT CODES MAPPING
+// ========================================
 const airportCodes = {
     "Prishtina": "PRN",
     "Stockholm": "ARN",
@@ -33,81 +43,209 @@ const airportCodes = {
     "Zürich": "ZRH"
 };
 
-// City name mapping for typing into the form
-const cityNames = {
-    "PRN": "Prishtina",
-    "ARN": "Stockholm",
-    "BER": "Berlin",
-    "BGY": "Milano",
-    "BRE": "Bremen",
-    "BRU": "Brussels",
-    "BSL": "Basel",
-    "CGN": "Köln",
-    "DTM": "Dortmund",
-    "DUS": "Düsseldorf",
-    "FMM": "Memmingen",
-    "FMO": "Münster",
-    "GOT": "Göteborg",
-    "GVA": "Geneva",
-    "HAJ": "Hannover",
-    "HAM": "Hamburg",
-    "HEL": "Helsinki",
-    "LJU": "Ljubljana",
-    "LUX": "Luxembourg",
-    "MMX": "Malmö",
-    "MUC": "München",
-    "NUE": "Nürnberg",
-    "OSL": "Oslo",
-    "STR": "Stuttgart",
-    "SZG": "Salzburg",
-    "VIE": "Vienna",
-    "VXO": "Växjö",
-    "ZRH": "Zürich"
+// ========================================
+// PRODUCTION CONFIGURATION
+// ========================================
+const CONFIG = {
+    // Environment
+    isProduction: process.env.NODE_ENV === 'production',
+    debugMode: process.env.DEBUG_BROWSER === 'true',
+    
+    // Timeouts (ms)
+    browserTimeout: 30000,
+    pageTimeout: 20000,
+    resultWaitTimeout: 8000,
+    
+    // Wait times (ms) - Optimized for speed
+    waitForRender: 1000,      // Wait for Angular to render results
+    waitBetweenRetries: 500,
+    
+    // Retry settings
+    maxRetries: 2,
+    
+    // Logging - Disable in production
+    enableLogging: process.env.NODE_ENV !== 'production',
+    savePerformanceLogs: process.env.SAVE_PERF_LOGS === 'true', // Only save if explicitly enabled
+    verboseLogging: process.env.VERBOSE_LOG === 'true'
 };
 
 // ========================================
-// DEBUG MODE - Set to true to see browser (only works locally, not on server)
+// UTILITY FUNCTIONS
 // ========================================
-const DEBUG_MODE = process.env.NODE_ENV !== 'production'; // Auto-detect: false on server, true locally
-const IS_SERVER = process.env.NODE_ENV === 'production'; // True on VPS
 
-// ⚡ SPEED MODE - Faster automation
-const SPEED_MODE = true;
-
-// 🚀 TURBO MODE - Maximum speed with direct DOM manipulation
-// On server, use slightly longer waits for reliability
-const TURBO_MODE = true;
-
-const SLOW_MOTION = TURBO_MODE ? 0 : (DEBUG_MODE ? 50 : 0);
-
-// ⚡ Wait times - Server gets slightly longer waits for reliability
-const WAIT_SHORT = IS_SERVER ? 150 : (TURBO_MODE ? 50 : 100);
-const WAIT_MEDIUM = IS_SERVER ? 300 : (TURBO_MODE ? 100 : 200);
-const WAIT_LONG = IS_SERVER ? 500 : (TURBO_MODE ? 200 : 400);
-const WAIT_PAGE_LOAD = IS_SERVER ? 1500 : (TURBO_MODE ? 500 : 800);
-
-/**
- * Log with timestamp and emoji for visibility
- */
-function log(emoji, message) {
-    const timestamp = new Date().toLocaleTimeString();
-    console.log(`[${timestamp}] ${emoji} ${message}`);
+function log(level, message) {
+    // Skip all logging in production unless it's an error
+    if (CONFIG.isProduction && level !== 'error') return;
+    if (!CONFIG.enableLogging && level !== 'error') return;
+    
+    const timestamp = new Date().toISOString().substr(11, 8);
+    const icons = { info: 'ℹ️', success: '✅', warn: '⚠️', error: '❌', debug: '🔍', perf: '⏱️' };
+    console.log(`[${timestamp}] ${icons[level] || ''} ${message}`);
 }
 
-/**
- * Wait helper
- */
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
- * Search for flights on prishtinaticket.net using MANUAL FORM FILLING
+ * Format date from YYYY-MM-DD to DD.MM.YYYY (required by prishtinaticket.net)
  */
-async function searchFlights(searchParams, performanceLogger = null) {
-    const { departure, destination, departureDate, returnDate, adults = 1, children = 0, infants = 0, tripType = 'roundtrip' } = searchParams;
+function formatDateForUrl(dateStr) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}.${month}.${year}`;
+}
+
+/**
+ * Build direct search URL - SKIPS form filling entirely!
+ */
+function buildSearchUrl(params) {
+    const { fromCode, toCode, departureDate, returnDate, adults, children, infants, tripType } = params;
     
-    // Initialize performance logger if not provided
+    const flightType = tripType === 'oneway' ? 'ONE_WAY' : 'ROUND_TRIP';
+    const dateFrom = formatDateForUrl(departureDate);
+    const dateTo = tripType === 'oneway' ? '' : formatDateForUrl(returnDate);
+    
+    const url = new URL('https://www.prishtinaticket.net/en/flights/booking');
+    url.searchParams.set('FLIGHT_TYPE', flightType);
+    url.searchParams.set('FROM', fromCode);
+    url.searchParams.set('TO', toCode);
+    url.searchParams.set('DATE_FROM', dateFrom);
+    if (dateTo) url.searchParams.set('DATE_TO', dateTo);
+    url.searchParams.set('ADULTS', adults.toString());
+    url.searchParams.set('CHILDREN', children.toString());
+    url.searchParams.set('INFANTS', infants.toString());
+    
+    return url.toString();
+}
+
+// ========================================
+// FLIGHT DATA EXTRACTION
+// ========================================
+
+/**
+ * Extract flight data from the page
+ * Uses multiple methods for reliability
+ */
+function createExtractionScript(fromCode, toCode) {
+    return `
+        (function() {
+            const results = {
+                outbound: { route: { fromCode: '${fromCode}', toCode: '${toCode}' }, flights: [], rawText: '' },
+                return: { route: { fromCode: '${toCode}', toCode: '${fromCode}' }, flights: [], rawText: '' },
+                currency: 'EUR',
+                debug: { outboundFound: false, returnFound: false }
+            };
+            
+            function extractFlights(container) {
+                const flights = [];
+                if (!container) return flights;
+                
+                const fullText = container.textContent || '';
+                
+                // Method 1: Pattern matching on full text
+                const flightPattern = /(\\d{2}:\\d{2})\\s+\\w+\\s+\\w{3}\\s+(\\d+h\\s*\\d*\\s*min)\\s+(\\d{2}:\\d{2})\\s+\\w+\\s+\\w{3}.*?([€$CHF]+)\\s*(\\d+)\\s*[.,]?\\s*(\\d{2})?/gi;
+                let match;
+                while ((match = flightPattern.exec(fullText)) !== null) {
+                    const currencyRaw = match[4];
+                    const currency = currencyRaw.includes('€') ? 'EUR' : 'CHF';
+                    let price = match[5];
+                    if (match[6]) price += '.' + match[6];
+                    
+                    flights.push({
+                        departureTime: match[1],
+                        arrivalTime: match[3],
+                        duration: match[2].trim(),
+                        price: price,
+                        currency: currency
+                    });
+                }
+                
+                if (flights.length > 0) return flights;
+                
+                // Method 2: Parse raw text for times and prices
+                const allTimes = fullText.match(/\\d{2}:\\d{2}/g) || [];
+                const eurMatches = fullText.match(/€\\s*(\\d+)/g) || [];
+                const chfMatches = fullText.match(/CHF\\s*(\\d+)/g) || [];
+                const durations = fullText.match(/\\d+h\\s*\\d*\\s*min/gi) || [];
+                
+                if (allTimes.length >= 2) {
+                    for (let i = 0; i < allTimes.length - 1; i += 2) {
+                        let price = '0';
+                        let currency = 'EUR';
+                        const idx = Math.floor(i / 2);
+                        
+                        if (eurMatches[idx]) {
+                            const num = eurMatches[idx].match(/(\\d+)/);
+                            if (num) price = num[1];
+                        } else if (chfMatches[idx]) {
+                            const num = chfMatches[idx].match(/(\\d+)/);
+                            if (num) { price = num[1]; currency = 'CHF'; }
+                        } else if (eurMatches.length > 0) {
+                            const num = eurMatches[0].match(/(\\d+)/);
+                            if (num) price = num[1];
+                        }
+                        
+                        flights.push({
+                            departureTime: allTimes[i],
+                            arrivalTime: allTimes[i + 1],
+                            duration: durations[idx] || '2h',
+                            price: price,
+                            currency: currency
+                        });
+                    }
+                }
+                
+                return flights;
+            }
+            
+            // Find containers
+            const outSel = 'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(1) > div > div.space-y-5';
+            const retSel = 'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(2) > div > div.space-y-5';
+            
+            const outContainer = document.querySelector(outSel);
+            const retContainer = document.querySelector(retSel);
+            
+            if (outContainer) {
+                results.debug.outboundFound = true;
+                results.outbound.rawText = outContainer.textContent.substring(0, 500);
+                results.outbound.flights = extractFlights(outContainer);
+            }
+            
+            if (retContainer) {
+                results.debug.returnFound = true;
+                results.return.rawText = retContainer.textContent.substring(0, 500);
+                results.return.flights = extractFlights(retContainer);
+            }
+            
+            // Detect currency from found flights
+            const allFlights = [...results.outbound.flights, ...results.return.flights];
+            if (allFlights.length > 0) {
+                results.currency = allFlights[0].currency;
+            }
+            
+            return results;
+        })()
+    `;
+}
+
+// ========================================
+// MAIN SEARCH FUNCTION - PRODUCTION OPTIMIZED
+// ========================================
+
+async function searchFlights(searchParams, performanceLogger = null) {
+    const { 
+        departure, 
+        destination, 
+        departureDate, 
+        returnDate, 
+        adults = 1, 
+        children = 0, 
+        infants = 0, 
+        tripType = 'roundtrip' 
+    } = searchParams;
+    
+    // Initialize performance tracking
     const perf = performanceLogger || new PerformanceLogger();
     perf.setSearchParams(searchParams);
     
@@ -115,881 +253,136 @@ async function searchFlights(searchParams, performanceLogger = null) {
     const fromCode = airportCodes[departure] || departure;
     const toCode = airportCodes[destination] || destination;
     
-    // Get city names for typing
-    const fromCity = cityNames[fromCode] || departure;
-    const toCity = cityNames[toCode] || destination;
-    
-    // Parse dates
-    const depDate = new Date(departureDate);
-    const retDate = returnDate ? new Date(returnDate) : null;
-    
-    // Calculate passengers
     const totalAdults = parseInt(adults) || 1;
     const totalChildren = parseInt(children) || 0;
     const totalInfants = parseInt(infants) || 0;
     
-    log('🔍', '='.repeat(60));
-    log('🔍', 'MANUAL FORM AUTOMATION - DEBUG MODE');
-    log('🔍', '='.repeat(60));
-    log('📋', `From: ${departure} (${fromCode}) → Type: "${fromCity}"`);
-    log('📋', `To: ${destination} (${toCode}) → Type: "${toCity}"`);
-    log('📋', `Departure: ${depDate.toDateString()}`);
-    log('📋', `Return: ${retDate ? retDate.toDateString() : 'One way'}`);
-    log('📋', `Passengers: ${totalAdults} adult(s), ${totalChildren} child(ren), ${totalInfants} infant(s)`);
-    log('🔍', '='.repeat(60));
+    log('info', `Search: ${departure} (${fromCode}) → ${destination} (${toCode})`);
+    log('info', `Date: ${departureDate}${returnDate ? ' → ' + returnDate : ' (one-way)'}`);
+    log('info', `Passengers: ${totalAdults}A ${totalChildren}C ${totalInfants}I`);
     
     let browser;
+    
     try {
-        // ⏱️ TIMING: Browser Launch
+        // ========================================
+        // STEP 1: Launch Browser
+        // ========================================
         perf.startStep('browser_launch');
-        log('🚀', `Launching browser in ${DEBUG_MODE ? 'VISIBLE' : 'HEADLESS'} mode... ${TURBO_MODE ? '⚡ TURBO' : ''}`);
+        
         browser = await puppeteer.launch({
-            headless: DEBUG_MODE ? false : 'new',
-            slowMo: SLOW_MOTION,
+            headless: CONFIG.debugMode ? false : 'new',
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--disable-software-rasterizer',
                 '--disable-extensions',
                 '--disable-background-networking',
                 '--disable-sync',
                 '--disable-translate',
-                '--disable-default-apps',
-                '--disable-hang-monitor',
-                '--disable-popup-blocking',
-                '--disable-renderer-backgrounding',
                 '--mute-audio',
-                '--window-size=1400,900',
-                '--window-position=100,100'
+                '--no-first-run',
+                '--window-size=1280,800'
             ],
-            defaultViewport: null,
-            timeout: 60000
+            defaultViewport: { width: 1280, height: 800 },
+            timeout: CONFIG.browserTimeout
         });
         
         const page = await browser.newPage();
-        await page.setViewport({ width: 1400, height: 900 });
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        perf.endStep('browser_launch', { headless: !DEBUG_MODE, turboMode: TURBO_MODE });
         
-        // ⚡ SPEED OPTIMIZATION: Block unnecessary resources
-        // On server, disable blocking to ensure maximum compatibility
-        if (SPEED_MODE && !IS_SERVER) {
-            await page.setRequestInterception(true);
-            page.on('request', (req) => {
-                const resourceType = req.resourceType();
-                const url = req.url();
-                
-                // Block images, fonts, media, and tracking scripts (local only)
-                const shouldBlock = (resourceType === 'image' ||
-                       resourceType === 'font' ||
-                       resourceType === 'media' ||
-                       url.includes('google-analytics') ||
-                       url.includes('facebook') ||
-                       url.includes('hotjar') ||
-                       url.includes('tracking'));
-                
-                if (shouldBlock) {
-                    req.abort();
-                } else {
-                    req.continue();
-                }
-            });
-            log('⚡', 'Speed mode: Blocking images, fonts, tracking (local only)');
-        } else if (IS_SERVER) {
-            log('🖥️', 'Server mode: Full page load for reliability');
-        }
-        
-        // ========================================
-        // STEP 1: Navigate to prishtinaticket.net
-        // ========================================
-        // ⏱️ TIMING: Page Navigation
-        perf.startStep('page_navigation');
-        log('📍', 'Navigating to prishtinaticket.net/en ...');
-        // Use domcontentloaded for speed - don't wait for all network requests
-        try {
-            await page.goto('https://www.prishtinaticket.net/en', { 
-                waitUntil: 'domcontentloaded', 
-                timeout: 60000 
-            });
-            log('✅', 'Page loaded (DOM ready)');
-            
-            // Give Angular time to bootstrap on slower server
-            if (IS_SERVER) {
-                log('⏳', 'Waiting for Angular to initialize...');
-                await wait(2000);
-            }
-        } catch (navError) {
-            log('⚠️', `Navigation issue: ${navError.message}, retrying...`);
-            await page.goto('https://www.prishtinaticket.net/en', { 
-                waitUntil: 'load', 
-                timeout: 60000 
-            });
-            await wait(3000);
-        }
-        perf.endStep('page_navigation', { url: 'https://www.prishtinaticket.net/en' });
-        
-        // 🚀 TURBO: Disable all CSS animations
-        if (TURBO_MODE) {
-            await page.addStyleTag({
-                content: `
-                    *, *::before, *::after {
-                        animation-duration: 0.001s !important;
-                        animation-delay: 0s !important;
-                        transition-duration: 0.001s !important;
-                        transition-delay: 0s !important;
-                    }
-                `
-            });
-            log('⚡', 'TURBO: Disabled all CSS animations');
-        }
-        
-        await wait(WAIT_PAGE_LOAD);
-        
-        
-        // Try to accept cookies if present
-        try {
-            await page.evaluate(() => {
-                const btns = document.querySelectorAll('button');
-                for (const btn of btns) {
-                    if (btn.textContent.includes('Accept') || btn.textContent.includes('Agree')) {
-                        btn.click();
-                        return;
-                    }
-                }
-            });
-            await wait(WAIT_LONG);
-        } catch (e) { }
-        
-        // ========================================
-        // STEP 2: Select trip type (ONE-WAY if needed)
-        // ========================================
-        // ⏱️ TIMING: Trip Type Selection
-        perf.startStep('select_trip_type');
-        if (tripType === 'oneway') {
-            log('🔄', 'Selecting ONE-WAY trip...');
-            const oneWaySelector = '#mat-tab-group-0-content-0 > div > lib-search-form > div > div.row.mb-1 > div > lib-radio > lib-form-field-wrapper > div > div > div > div:nth-child(2) > label';
-            
-            try {
-                await page.waitForSelector(oneWaySelector, { timeout: 5000 });
-                await page.click(oneWaySelector);
-                log('✅', 'Selected ONE-WAY trip');
-                await wait(WAIT_MEDIUM);
-            } catch (e) {
-                log('⚠️', 'One-way selection error: ' + e.message);
-                // Try fallback - click by text
-                await page.evaluate(() => {
-                    const labels = document.querySelectorAll('label');
-                    for (const label of labels) {
-                        if (label.textContent.toLowerCase().includes('one way') || 
-                            label.textContent.toLowerCase().includes('one-way')) {
-                            label.click();
-                            return;
-                        }
-                    }
-                });
-            }
-        } else {
-            log('🔄', 'Using default ROUND-TRIP');
-        }
-        perf.endStep('select_trip_type', { tripType });
-        
-        // ========================================
-        // STEP 3: Enter "Flying From" city
-        // ========================================
-        // ⏱️ TIMING: Fill Departure
-        perf.startStep('fill_departure');
-        log('✈️', `Entering departure city: ${fromCity}`);
-        
-        // Find the FROM input dynamically (IDs change on each page load)
-        try {
-            // First, find the input by looking for autocomplete inputs in the form
-            const fromInputFound = await page.evaluate((cityToType) => {
-                // Find all text inputs that might be the "from" field
-                const inputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                
-                for (const input of inputs) {
-                    const placeholder = (input.placeholder || '').toLowerCase();
-                    const ariaLabel = (input.getAttribute('aria-label') || '').toLowerCase();
-                    const id = input.id || '';
-                    
-                    // Look for "from" or "departure" or first autocomplete input
-                    if (placeholder.includes('from') || placeholder.includes('departure') || 
-                        ariaLabel.includes('from') || ariaLabel.includes('departure') ||
-                        input.closest('[class*="from"]') || input.closest('[class*="departure"]')) {
-                        
-                        // Clear the input
-                        input.value = '';
-                        input.focus();
-                        input.click();
-                        return input.id || 'found';
-                    }
-                }
-                
-                // Fallback: get the first autocomplete input (usually the FROM field)
-                const autocompleteInputs = document.querySelectorAll('input[matinput], input[aria-autocomplete]');
-                if (autocompleteInputs.length > 0) {
-                    const input = autocompleteInputs[0];
-                    input.value = '';
-                    input.focus();
-                    input.click();
-                    return input.id || 'found-first';
-                }
-                
-                return null;
-            }, fromCity);
-            
-            if (fromInputFound) {
-                log('✅', `Found FROM input: ${fromInputFound}`);
-                await wait(WAIT_MEDIUM);
-                
-                // Type the city name
-                await page.keyboard.type(fromCity, { delay: TURBO_MODE ? 10 : 50 });
-                log('✅', `Typed: "${fromCity}"`);
-                
-                await wait(WAIT_LONG); // Wait for dropdown
-                
-                // Click first dropdown option
-                await page.evaluate(() => {
-                    const options = document.querySelectorAll('mat-option, .mat-option, [role="option"]');
-                    if (options.length > 0) {
-                        options[0].click();
-                    }
-                });
-                log('✅', 'Selected from dropdown');
-                await wait(WAIT_MEDIUM);
+        // Block unnecessary resources for speed
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            const type = req.resourceType();
+            if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+                req.abort();
             } else {
-                log('⚠️', 'Could not find FROM input!');
+                req.continue();
             }
-            
-        } catch (e) {
-            log('⚠️', 'From input error: ' + e.message);
-        }
-        perf.endStep('fill_departure', { city: fromCity, code: fromCode });
+        });
+        
+        perf.endStep('browser_launch');
+        log('success', `Browser launched (${perf.getStepDuration('browser_launch')}ms)`);
         
         // ========================================
-        // STEP 4: Enter "Flying To" city
+        // STEP 2: Navigate DIRECTLY to Search Results
         // ========================================
-        // ⏱️ TIMING: Fill Destination
-        perf.startStep('fill_destination');
-        log('🛬', `Entering destination city: ${toCity}`);
+        perf.startStep('direct_navigation');
         
-        try {
-            // Find the TO input dynamically
-            const toInputFound = await page.evaluate(() => {
-                // Find all text inputs
-                const inputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                
-                for (const input of inputs) {
-                    const placeholder = (input.placeholder || '').toLowerCase();
-                    const ariaLabel = (input.getAttribute('aria-label') || '').toLowerCase();
-                    
-                    // Look for "to" or "destination" or "arrival"
-                    if (placeholder.includes('to') || placeholder.includes('destination') || 
-                        placeholder.includes('arrival') ||
-                        ariaLabel.includes('to') || ariaLabel.includes('destination')) {
-                        
-                        input.value = '';
-                        input.focus();
-                        input.click();
-                        return input.id || 'found';
-                    }
-                }
-                
-                // Fallback: get the second autocomplete input (usually the TO field)
-                const autocompleteInputs = document.querySelectorAll('input[matinput], input[aria-autocomplete]');
-                if (autocompleteInputs.length > 1) {
-                    const input = autocompleteInputs[1];
-                    input.value = '';
-                    input.focus();
-                    input.click();
-                    return input.id || 'found-second';
-                }
-                
-                return null;
-            });
-            
-            if (toInputFound) {
-                log('✅', `Found TO input: ${toInputFound}`);
-                await wait(WAIT_MEDIUM);
-                
-                // Type the city name
-                await page.keyboard.type(toCity, { delay: TURBO_MODE ? 10 : 50 });
-                log('✅', `Typed: "${toCity}"`);
-                
-                await wait(WAIT_LONG); // Wait for dropdown
-                
-                // Click first dropdown option
-                await page.evaluate(() => {
-                    const options = document.querySelectorAll('mat-option, .mat-option, [role="option"]');
-                    if (options.length > 0) {
-                        options[0].click();
-                    }
-                });
-                log('✅', 'Selected from dropdown');
-                await wait(WAIT_MEDIUM);
-            } else {
-                log('⚠️', 'Could not find TO input!');
-            }
-            
-        } catch (e) {
-            log('⚠️', 'To input error: ' + e.message);
-        }
-        perf.endStep('fill_destination', { city: toCity, code: toCode });
+        const searchUrl = buildSearchUrl({
+            fromCode, toCode, departureDate, returnDate,
+            adults: totalAdults, children: totalChildren, infants: totalInfants,
+            tripType
+        });
+        
+        log('info', `Direct URL: ${searchUrl}`);
+        
+        await page.goto(searchUrl, { 
+            waitUntil: 'domcontentloaded',
+            timeout: CONFIG.pageTimeout 
+        });
+        
+        perf.endStep('direct_navigation');
+        log('success', `Page loaded (${perf.getStepDuration('direct_navigation')}ms)`);
         
         // ========================================
-        // STEP 5: Select dates
+        // STEP 3: Wait for Flight Results
         // ========================================
-        // ⏱️ TIMING: Select Dates
-        perf.startStep('select_dates');
-        log('📅', 'Opening date picker...');
-        
-        // Different selectors for ONE-WAY vs ROUND-TRIP
-        let datePickerButtonSelector;
-        let monthLabelSelector;
-        let nextMonthButtonSelector;
-        
-        if (tripType === 'oneway') {
-            // ONE-WAY uses lib-datepicker and mat-datepicker-1
-            datePickerButtonSelector = '#mat-tab-group-0-content-0 > div > lib-search-form > div > div:nth-child(2) > div.col-12.col-xl-7.order-1.xl\\:order-none > div > div:nth-child(1) > lib-datepicker > lib-form-field-wrapper > div > div > div > div > lib-form-icon > div > button';
-            monthLabelSelector = '#mat-datepicker-1 > mat-calendar-header > div > div > button.mdc-button.mat-mdc-button-base.mat-calendar-period-button.mat-mdc-button.mat-unthemed > span.mdc-button__label > span';
-            nextMonthButtonSelector = '#mat-datepicker-1 > mat-calendar-header > div > div > button.mdc-icon-button.mat-mdc-icon-button.mat-mdc-button-base.mat-mdc-tooltip-trigger.mat-calendar-next-button.mat-mdc-button-disabled-interactive.mat-unthemed';
-            log('📅', 'Using ONE-WAY date picker selectors (lib-datepicker, mat-datepicker-1)');
-        } else {
-            // ROUND-TRIP uses lib-range-datepicker and mat-datepicker-0
-            datePickerButtonSelector = '#mat-tab-group-0-content-0 > div > lib-search-form > div > div:nth-child(2) > div.col-12.col-xl-7.order-1.xl\\:order-none > div > div:nth-child(1) > lib-range-datepicker > lib-form-field-wrapper > div > div > div > div > lib-form-icon > div > button';
-            monthLabelSelector = '#mat-datepicker-0 > mat-calendar-header > div > div > button.mdc-button.mat-mdc-button-base.mat-calendar-period-button.mat-mdc-button.mat-unthemed > span.mdc-button__label > span';
-            nextMonthButtonSelector = '#mat-datepicker-0 > mat-calendar-header > div > div > button.mdc-icon-button.mat-mdc-icon-button.mat-mdc-button-base.mat-calendar-next-button';
-            log('📅', 'Using ROUND-TRIP date picker selectors (lib-range-datepicker, mat-datepicker-0)');
-        }
-        
-        try {
-            // Click the date picker button to open calendar
-            await page.waitForSelector(datePickerButtonSelector, { timeout: 10000 });
-            await page.click(datePickerButtonSelector);
-            log('✅', 'Date picker button clicked!');
-            await wait(WAIT_LONG);
-            
-            // Helper function to read current month from calendar
-            async function getCurrentMonth() {
-                const monthText = await page.evaluate((sel) => {
-                    const el = document.querySelector(sel);
-                    return el ? el.textContent.trim() : '';
-                }, monthLabelSelector);
-                return monthText;
-            }
-            
-            // Helper function to navigate to the correct month
-            async function navigateToMonth(targetDate) {
-                const targetMonth = targetDate.getMonth();
-                const targetYear = targetDate.getFullYear();
-                
-                const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                const fullMonthNames = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
-                const targetMonthShort = monthNames[targetMonth];
-                const targetMonthFull = fullMonthNames[targetMonth];
-                
-                log('📅', `Target: ${targetMonthFull} ${targetYear}`);
-                
-                let attempts = 0;
-                while (attempts < 24) { // Allow navigating up to 2 years ahead
-                    const currentMonthText = await getCurrentMonth();
-                    log('📅', `Calendar shows: "${currentMonthText}"`);
-                    
-                    // Check if we're at the right month
-                    const upperText = currentMonthText.toUpperCase();
-                    if ((upperText.includes(targetMonthShort) || upperText.includes(targetMonthFull)) && 
-                        currentMonthText.includes(targetYear.toString())) {
-                        log('✅', `Reached target month: ${targetMonthFull} ${targetYear}`);
-                        return true;
-                    }
-                    
-                    // Click next month button
-                    log('📅', 'Clicking next month...');
-                    try {
-                        await page.click(nextMonthButtonSelector);
-                    } catch (e) {
-                        // Try alternative selector
-                        await page.evaluate(() => {
-                            const btn = document.querySelector('.mat-calendar-next-button');
-                            if (btn) btn.click();
-                        });
-                    }
-                    await wait(WAIT_MEDIUM);
-                    
-                    attempts++;
-                }
-                
-                log('⚠️', 'Could not navigate to target month after 24 attempts');
-                return false;
-            }
-            
-            // Helper to click on a specific day
-            async function clickDay(day) {
-                log('📅', `Clicking on day: ${day}`);
-                
-                const clicked = await page.evaluate((d) => {
-                    // Find all calendar day cells
-                    const cells = document.querySelectorAll('.mat-calendar-body-cell');
-                    for (const cell of cells) {
-                        const content = cell.querySelector('.mat-calendar-body-cell-content');
-                        if (content && content.textContent.trim() === d.toString()) {
-                            // Highlight for debugging
-                            cell.style.outline = '3px solid red';
-                            cell.click();
-                            return true;
-                        }
-                    }
-                    
-                    // Alternative: try clicking by text content directly
-                    const allCells = document.querySelectorAll('[role="gridcell"]');
-                    for (const cell of allCells) {
-                        if (cell.textContent.trim() === d.toString()) {
-                            cell.click();
-                            return true;
-                        }
-                    }
-                    
-                    return false;
-                }, day);
-                
-                if (clicked) {
-                    log('✅', `Clicked on day ${day}`);
-                } else {
-                    log('⚠️', `Could not find day ${day}`);
-                }
-                
-                return clicked;
-            }
-            
-            // Select DEPARTURE date
-            log('📅', `Selecting DEPARTURE date: ${depDate.getDate()}/${depDate.getMonth() + 1}/${depDate.getFullYear()}`);
-            await navigateToMonth(depDate);
-            await wait(WAIT_MEDIUM);
-            await clickDay(depDate.getDate());
-            log('✅', `Selected departure day: ${depDate.getDate()}`);
-            await wait(WAIT_LONG);
-            
-            // Select RETURN date if round trip (skip for one-way)
-            if (tripType === 'oneway') {
-                log('📅', 'ONE-WAY trip: Skipping return date selection');
-            } else if (retDate) {
-                log('📅', `Selecting RETURN date: ${retDate.getDate()}/${retDate.getMonth() + 1}/${retDate.getFullYear()}`);
-                
-                // Check if return date is in a different month
-                if (retDate.getMonth() !== depDate.getMonth() || retDate.getFullYear() !== depDate.getFullYear()) {
-                    log('📅', 'Return date is in a different month, navigating...');
-                    await navigateToMonth(retDate);
-                    await wait(WAIT_MEDIUM);
-                }
-                
-                await clickDay(retDate.getDate());
-                log('✅', `Selected return day: ${retDate.getDate()}`);
-            }
-            
-            await wait(WAIT_MEDIUM);
-            
-            // Click outside to close the calendar (if still open)
-            try {
-                await page.keyboard.press('Escape');
-                await wait(WAIT_SHORT);
-            } catch (e) { }
-            
-        } catch (e) {
-            log('⚠️', 'Date selection error: ' + e.message);
-            console.error(e);
-        }
-        perf.endStep('select_dates', { departureDate: depDate.toISOString(), returnDate: retDate?.toISOString() });
-        
-        // ========================================
-        // STEP 6: Add passengers if needed
-        // ========================================
-        // ⏱️ TIMING: Set Passengers
-        perf.startStep('set_passengers');
-        if (totalAdults > 1 || totalChildren > 0 || totalInfants > 0) {
-            log('👥', 'Adjusting passenger count...');
-            log('👥', `Need: ${totalAdults} adult(s), ${totalChildren} child(ren), ${totalInfants} infant(s)`);
-            
-            // Button to open passenger selector dropdown
-            const passengerDropdownSelector = '#mat-tab-group-0-content-0 > div > lib-search-form > div > div:nth-child(2) > div.col-12.col-xl-7.order-1.xl\\:order-none > div > div.col-12.col-md-6.col-xl-5.relative > lib-button > button';
-            
-            try {
-                // Click on passenger dropdown to open it
-                log('👥', 'Opening passenger selector...');
-                await page.waitForSelector(passengerDropdownSelector, { timeout: 10000 });
-                await page.click(passengerDropdownSelector);
-                log('✅', 'Passenger selector opened!');
-                await wait(WAIT_LONG);
-                
-                // Helper function to click the + button for a passenger type
-                // The overlay ID changes dynamically (cdk-overlay-0, cdk-overlay-17, etc.)
-                // So we find the lib-passenger-selection component dynamically
-                async function clickPlusButton(itemIndex, count, label) {
-                    for (let i = 0; i < count; i++) {
-                        const clicked = await page.evaluate((idx) => {
-                            // Find the passenger selection component (in any overlay)
-                            const passengerSelection = document.querySelector('lib-passenger-selection');
-                            if (!passengerSelection) {
-                                console.log('Could not find lib-passenger-selection');
-                                return false;
-                            }
-                            
-                            // Find the correct item (1=adults, 3=children, 5=infants)
-                            const item = passengerSelection.querySelector(`lib-passenger-selection-item:nth-child(${idx})`);
-                            if (!item) {
-                                console.log(`Could not find item at index ${idx}`);
-                                return false;
-                            }
-                            
-                            // Find the + button (it's the 3rd lib-button child)
-                            const plusButton = item.querySelector('lib-button:nth-child(3) button');
-                            if (!plusButton) {
-                                // Try alternative: find button with + text
-                                const buttons = item.querySelectorAll('button');
-                                for (const btn of buttons) {
-                                    if (btn.textContent.includes('+')) {
-                                        btn.click();
-                                        return true;
-                                    }
-                                }
-                                console.log('Could not find + button');
-                                return false;
-                            }
-                            
-                            plusButton.click();
-                            return true;
-                        }, itemIndex);
-                        
-                        if (clicked) {
-                            log('✅', `Added ${label} ${i + 1}`);
-                        } else {
-                            log('⚠️', `Could not click + for ${label}`);
-                        }
-                        await wait(WAIT_MEDIUM);
-                    }
-                }
-                
-                // Add extra adults (beyond the default 1)
-                const adultsToAdd = totalAdults - 1;
-                if (adultsToAdd > 0) {
-                    log('👤', `Adding ${adultsToAdd} extra adult(s)...`);
-                    await clickPlusButton(1, adultsToAdd, 'adult');
-                }
-                
-                // Add children
-                if (totalChildren > 0) {
-                    log('🧒', `Adding ${totalChildren} child(ren)...`);
-                    await clickPlusButton(3, totalChildren, 'child');
-                }
-                
-                // Add infants
-                if (totalInfants > 0) {
-                    log('👶', `Adding ${totalInfants} infant(s)...`);
-                    await clickPlusButton(5, totalInfants, 'infant');
-                }
-                
-                // Click outside to close passenger dropdown
-                log('👥', 'Closing passenger selector...');
-                await page.keyboard.press('Escape');
-                await wait(WAIT_MEDIUM);
-                
-                log('✅', `Passengers set: ${totalAdults} adult(s), ${totalChildren} child(ren), ${totalInfants} infant(s)`);
-                
-            } catch (e) {
-                log('⚠️', 'Passenger selection error: ' + e.message);
-                console.error(e);
-            }
-        }
-        perf.endStep('set_passengers', { adults: totalAdults, children: totalChildren, infants: totalInfants });
-        
-        // ========================================
-        // STEP 7: Click Search button
-        // ========================================
-        // ⏱️ TIMING: Click Search
-        perf.startStep('click_search');
-        log('🔍', 'Clicking SEARCH button...');
-        
-        const searchButtonSelector = '#mat-tab-group-0-content-0 > div > lib-search-form > div > div:nth-child(2) > div.col-12.col-xl-7.order-1.xl\\:order-none > div > div.col-12.col-xl-2.relative > lib-button > button';
-        
-        try {
-            await page.waitForSelector(searchButtonSelector, { timeout: 10000 });
-            
-            // Highlight button first
-            await page.evaluate((sel) => {
-                const btn = document.querySelector(sel);
-                if (btn) {
-                    btn.style.outline = '5px solid red';
-                    btn.style.outlineOffset = '3px';
-                }
-            }, searchButtonSelector);
-            
-            await wait(WAIT_MEDIUM);
-            
-            // Click using evaluate for more reliable clicking
-            const clicked = await page.evaluate((sel) => {
-                const btn = document.querySelector(sel);
-                if (btn) {
-                    btn.click();
-                    return true;
-                }
-                return false;
-            }, searchButtonSelector);
-            
-            if (clicked) {
-                log('✅', 'Search button clicked!');
-            } else {
-                // Try puppeteer click as backup
-                await page.click(searchButtonSelector);
-                log('✅', 'Search button clicked (puppeteer)!');
-            }
-            
-        } catch (e) {
-            log('⚠️', 'Search button error, trying fallback: ' + e.message);
-            
-            // Fallback: find by text
-            const fallbackClicked = await page.evaluate(() => {
-                const btns = document.querySelectorAll('button');
-                for (const btn of btns) {
-                    const text = btn.textContent.toLowerCase();
-                    if (text.includes('search') || text.includes('find') || text.includes('suchen')) {
-                        btn.click();
-                        return true;
-                    }
-                }
-                return false;
-            });
-            
-            if (fallbackClicked) {
-                log('✅', 'Search button clicked (fallback)!');
-            } else {
-                log('❌', 'Could not click search button!');
-            }
-        }
-        perf.endStep('click_search');
-        
-        // ========================================
-        // STEP 8: Wait for results to load
-        // ========================================
-        // ⏱️ TIMING: Wait for Results
         perf.startStep('wait_for_results');
-        log('⏳', 'Waiting for flight results...');
         
-        // 🚀 Smart wait - wait for actual results instead of fixed time
-        // Server needs longer timeout due to network latency
-        const resultsTimeout = IS_SERVER ? 15000 : (TURBO_MODE ? 6000 : 15000);
+        // Wait for the results container
+        const resultsSelector = 'lib-modern-flight-availability, app-availabilities, .booking-flights__body';
+        
         try {
-            log('⏳', `Waiting for results (max ${resultsTimeout/1000}s)...`);
-            await page.waitForSelector('lib-modern-flight-availability, .flight-card, .flight-result, .no-flights, .mat-tab-body-content', { 
-                timeout: resultsTimeout 
-            });
-            log('✅', 'Flight results container found!');
-            await wait(IS_SERVER ? 1000 : WAIT_MEDIUM); // Buffer for rendering
+            await page.waitForSelector(resultsSelector, { timeout: CONFIG.resultWaitTimeout });
+            log('success', 'Results container found');
+            
+            // Wait for Angular to render flights
+            await wait(CONFIG.waitForRender);
+            
+            // Optional: Wait for actual flight times to appear
+            try {
+                await page.waitForFunction(() => {
+                    const text = document.body?.innerText || '';
+                    return text.match(/\d{2}:\d{2}/);
+                }, { timeout: 3000 });
+            } catch (e) {
+                log('warn', 'No flight times detected');
+            }
+            
         } catch (e) {
-            log('⚠️', 'Timeout waiting for results selector, trying fallback...');
-            // Fallback: just wait a bit longer on server
-            await wait(IS_SERVER ? 5000 : 2000);
+            log('warn', 'Results container timeout, attempting extraction anyway');
+            await wait(1000);
         }
+        
         perf.endStep('wait_for_results');
+        log('success', `Results ready (${perf.getStepDuration('wait_for_results')}ms)`);
         
         // ========================================
-        // STEP 9: Extract flight data
+        // STEP 4: Extract Flight Data
         // ========================================
-        // ⏱️ TIMING: Extract Flight Data
-        perf.startStep('extract_flight_data');
-        log('📊', 'Extracting flight data...');
+        perf.startStep('extract_data');
         
-        const outboundSelector = 'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(1) > div > div.space-y-5';
-        const returnSelector = 'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(2) > div > div.space-y-5';
+        const extractionScript = createExtractionScript(fromCode, toCode);
+        const flightData = await page.evaluate(extractionScript);
         
-        // Wait for flight containers
-        try {
-            await page.waitForSelector(outboundSelector, { timeout: 15000 });
-            log('✅', 'Flight results container found!');
-        } catch (e) {
-            log('⚠️', 'Flight results container not found: ' + e.message);
-        }
-        
-        // Highlight containers
-        await page.evaluate((outSel, retSel) => {
-            const outbound = document.querySelector(outSel);
-            const returnFlight = document.querySelector(retSel);
-            if (outbound) {
-                outbound.style.outline = '5px solid blue';
-                outbound.style.outlineOffset = '5px';
-            }
-            if (returnFlight) {
-                returnFlight.style.outline = '5px solid green';
-                returnFlight.style.outlineOffset = '5px';
-            }
-        }, outboundSelector, returnSelector);
-        
-        // Extract flight data
-        const flightData = await page.evaluate((outSel, retSel, fromCode, toCode) => {
-            const results = {
-                outbound: {
-                    route: { fromCode: fromCode, toCode: toCode },
-                    flights: [],
-                    rawText: ''
-                },
-                return: {
-                    route: { fromCode: toCode, toCode: fromCode },
-                    flights: [],
-                    rawText: ''
-                },
-                currency: 'CHF',
-                debug: {
-                    outboundFound: false,
-                    returnFound: false
-                }
-            };
-            
-            function extractFlights(container) {
-                const flights = [];
-                if (!container) return flights;
-                
-                // Method 1: Look at direct children (each should be a flight card)
-                const children = container.children;
-                for (let i = 0; i < children.length; i++) {
-                    const card = children[i];
-                    const cardText = card.textContent || '';
-                    
-                    // Extract times
-                    const times = cardText.match(/(\d{2}:\d{2})/g);
-                    if (!times || times.length < 2) continue;
-                    
-                    // Extract price - try different patterns
-                    let price = '';
-                    const priceMatch = cardText.match(/CHF\s*(\d+(?:[.,]\d{2})?)/i) ||
-                                       cardText.match(/(\d+)[.,](\d{2})\s*CHF/i) ||
-                                       cardText.match(/(\d+(?:[.,]\d{2})?)\s*$/);
-                    if (priceMatch) {
-                        price = priceMatch[1].replace(',', '.');
-                    }
-                    
-                    // Extract duration
-                    const durationMatch = cardText.match(/(\d+)\s*h(?:\s*(\d+)\s*min)?/i);
-                    let duration = '';
-                    if (durationMatch) {
-                        duration = durationMatch[1] + 'h';
-                        if (durationMatch[2]) duration += ' ' + durationMatch[2] + 'min';
-                    }
-                    
-                    // Only add if we have the essential data
-                    if (times.length >= 2) {
-                        flights.push({
-                            departureTime: times[0],
-                            arrivalTime: times[1],
-                            duration: duration || '2h',
-                            price: price || '0',
-                            currency: 'CHF'
-                        });
-                    }
-                }
-                
-                // Method 2: Fallback - scan all elements if no flights found
-                if (flights.length === 0) {
-                    const allElements = container.querySelectorAll('*');
-                    const seen = new Set();
-                    
-                    allElements.forEach(el => {
-                        const elText = el.textContent || '';
-                        const key = elText.substring(0, 50);
-                        
-                        if (elText.match(/\d{2}:\d{2}/) && !seen.has(key)) {
-                            const times = elText.match(/(\d{2}:\d{2})/g);
-                            const price = elText.match(/CHF\s*(\d+(?:[.,]\d{2})?)/i) ||
-                                         elText.match(/(\d+)[.,](\d{2})/);
-                            const duration = elText.match(/(\d+h(?:\s*\d+\s*min)?)/i);
-                            
-                            if (times && times.length >= 2) {
-                                seen.add(key);
-                                flights.push({
-                                    departureTime: times[0],
-                                    arrivalTime: times[1],
-                                    duration: duration ? duration[1] : '2h',
-                                    price: price ? price[1].replace(',', '.') : '0',
-                                    currency: 'CHF'
-                                });
-                            }
-                        }
-                    });
-                }
-                
-                // Remove duplicates by departure time + price
-                const uniqueFlights = flights.filter((f, i, arr) =>
-                    arr.findIndex(x => x.departureTime === f.departureTime && x.price === f.price) === i
-                );
-                
-                // Filter out flights with 0 price (invalid/unavailable options)
-                return uniqueFlights.filter(f => {
-                    const priceNum = parseFloat(f.price);
-                    return !isNaN(priceNum) && priceNum > 0;
-                });
-            }
-            
-            const outContainer = document.querySelector(outSel);
-            const retContainer = document.querySelector(retSel);
-            
-            if (outContainer) {
-                results.debug.outboundFound = true;
-                results.outbound.rawText = outContainer.textContent.substring(0, 1000);
-                results.outbound.flights = extractFlights(outContainer);
-            }
-            
-            if (retContainer) {
-                results.debug.returnFound = true;
-                results.return.rawText = retContainer.textContent.substring(0, 1000);
-                results.return.flights = extractFlights(retContainer);
-            }
-            
-            return results;
-        }, outboundSelector, returnSelector, fromCode, toCode);
-        
-        
-        // Log results
-        log('📊', '='.repeat(60));
-        log('📊', 'EXTRACTION RESULTS');
-        log('📊', '='.repeat(60));
-        log('📊', `Outbound container found: ${flightData.debug.outboundFound}`);
-        log('📊', `Return container found: ${flightData.debug.returnFound}`);
-        
-        log('📝', 'OUTBOUND RAW TEXT (first 800 chars):');
-        console.log(flightData.outbound.rawText.substring(0, 800));
-        
-        log('📝', 'RETURN RAW TEXT (first 800 chars):');
-        console.log(flightData.return.rawText.substring(0, 800));
-        
-        // Debug: show what patterns were found
-        const outText = flightData.outbound.rawText;
-        log('🔍', `Times found in outbound: ${(outText.match(/\d{2}:\d{2}/g) || []).join(', ')}`);
-        log('🔍', `Prices found in outbound: ${(outText.match(/CHF\s*\d+/gi) || []).join(', ')}`);
-        
-        log('✈️', `Outbound flights: ${flightData.outbound.flights.length}`);
-        flightData.outbound.flights.forEach((f, i) => {
-            console.log(`   ${i + 1}. ${f.departureTime} → ${f.arrivalTime} | ${f.duration} | CHF ${f.price}`);
-        });
-        
-        log('🔙', `Return flights: ${flightData.return.flights.length}`);
-        flightData.return.flights.forEach((f, i) => {
-            console.log(`   ${i + 1}. ${f.departureTime} → ${f.arrivalTime} | ${f.duration} | CHF ${f.price}`);
-        });
-        
-        // End data extraction timing
-        perf.endStep('extract_flight_data', { 
+        perf.endStep('extract_data', {
             outboundFlightsFound: flightData.outbound.flights.length,
             returnFlightsFound: flightData.return.flights.length
         });
         
-        // Keep browser open in debug mode (only locally)
-        if (DEBUG_MODE) {
-            log('👀', 'DEBUG: Browser stays open for 3 seconds...');
-            log('👀', 'Blue = Outbound | Green = Return');
-            await wait(3000);
-        }
+        log('success', `Extracted: ${flightData.outbound.flights.length} outbound, ${flightData.return.flights.length} return`);
         
-        // ⏱️ Print performance summary
+        // Log flight details
+        flightData.outbound.flights.forEach((f, i) => {
+            log('info', `  Outbound ${i+1}: ${f.departureTime}→${f.arrivalTime} ${f.currency}${f.price}`);
+        });
+        flightData.return.flights.forEach((f, i) => {
+            log('info', `  Return ${i+1}: ${f.departureTime}→${f.arrivalTime} ${f.currency}${f.price}`);
+        });
+        
+        // Print performance summary
         perf.printSummary();
         
         return {
@@ -1016,14 +409,14 @@ async function searchFlights(searchParams, performanceLogger = null) {
                     route: flightData.return.route,
                     flights: flightData.return.flights
                 },
-                currency: 'CHF'
+                currency: flightData.currency || 'EUR'
             },
             performanceLogger: perf
         };
         
     } catch (error) {
-        log('❌', 'ERROR: ' + error.message);
-        console.error(error);
+        log('error', `Search failed: ${error.message}`);
+        
         return {
             success: false,
             error: error.message,
@@ -1034,19 +427,31 @@ async function searchFlights(searchParams, performanceLogger = null) {
             },
             performanceLogger: perf
         };
+        
     } finally {
+        // ========================================
+        // CLEANUP
+        // ========================================
         if (browser) {
-            // ⏱️ TIMING: Browser Close
             perf.startStep('browser_close');
-            log('🔚', 'Closing browser...');
-            await browser.close();
+            try {
+                await browser.close();
+            } catch (e) {
+                // Ignore close errors
+            }
             perf.endStep('browser_close');
         }
     }
 }
 
+// ========================================
+// EXPORTS
+// ========================================
+
 module.exports = {
     searchFlights,
     airportCodes,
-    PerformanceLogger
+    PerformanceLogger,
+    buildSearchUrl,
+    CONFIG
 };

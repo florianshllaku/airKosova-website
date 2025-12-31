@@ -222,10 +222,17 @@
             }
         }
 
+        // Currency symbol helper
+        function getCurrencySymbol(currency) {
+            const symbols = { 'EUR': '€', 'CHF': 'CHF', 'USD': '$', 'GBP': '£' };
+            return symbols[currency] || currency;
+        }
+        
         // Create flight card HTML
         function createFlightCard(flight, type, index) {
+            const currencySymbol = getCurrencySymbol(flight.currency);
             return `
-                <div class="flight-card" data-type="${type}" data-index="${index}" data-price="${flight.price}" data-time="${flight.departureTime}">
+                <div class="flight-card" data-type="${type}" data-index="${index}" data-price="${flight.price}" data-currency="${flight.currency}" data-time="${flight.departureTime}">
                     <div class="flight-main">
                         <div class="flight-time departure">
                             <span class="time">${flight.departureTime}</span>
@@ -249,10 +256,10 @@
                     </div>
                     <div class="flight-price-section">
                         <div class="price">
-                            <span class="currency">${flight.currency}</span>
+                            <span class="currency">${currencySymbol}</span>
                             <span class="amount">${flight.price}</span>
                         </div>
-                        <button class="select-btn" onclick="selectFlight('${type}', ${index}, '${flight.price}', '${flight.departureTime}', '${flight.arrivalTime}')">
+                        <button class="select-btn" onclick="selectFlight('${type}', ${index}, '${flight.price}', '${flight.departureTime}', '${flight.arrivalTime}', '${flight.currency}')">
                             Zgjidh
                         </button>
                     </div>
@@ -261,7 +268,7 @@
         }
 
         // Select a flight
-        function selectFlight(type, index, price, depTime, arrTime) {
+        function selectFlight(type, index, price, depTime, arrTime, currency = 'EUR') {
             // Remove previous selection of this type
             document.querySelectorAll(`.flight-card[data-type="${type}"]`).forEach(card => {
                 card.classList.remove('selected');
@@ -274,13 +281,14 @@
             }
             
             // Update selection state
-            const flightInfo = `${depTime} → ${arrTime} (CHF ${price})`;
+            const currencySymbol = getCurrencySymbol(currency);
+            const flightInfo = `${depTime} → ${arrTime} (${currencySymbol} ${price})`;
             
             if (type === 'outbound') {
-                selectedOutbound = { price: parseFloat(price), info: flightInfo };
+                selectedOutbound = { price: parseFloat(price), info: flightInfo, currency: currency };
                 document.getElementById('selectedOutbound').textContent = flightInfo;
             } else {
-                selectedReturn = { price: parseFloat(price), info: flightInfo };
+                selectedReturn = { price: parseFloat(price), info: flightInfo, currency: currency };
                 document.getElementById('selectedReturn').textContent = flightInfo;
             }
             
@@ -293,7 +301,10 @@
             const outboundPrice = selectedOutbound ? selectedOutbound.price : 0;
             const returnPrice = selectedReturn ? selectedReturn.price : 0;
             const total = outboundPrice + returnPrice;
-            document.getElementById('totalPrice').textContent = `CHF ${total.toFixed(2)}`;
+            // Use the currency from selected flights (default to EUR)
+            const currency = selectedOutbound?.currency || selectedReturn?.currency || 'EUR';
+            const currencySymbol = getCurrencySymbol(currency);
+            document.getElementById('totalPrice').textContent = `${currencySymbol} ${total.toFixed(2)}`;
         }
 
         // Render flights
@@ -305,6 +316,11 @@
             const fromCode = cities[searchParams.departure] || 'PRN';
             const toCode = cities[searchParams.destination] || 'BSL';
             
+            // Debug: Log what we received
+            console.log('📦 API Response:', data);
+            console.log('📦 Outbound flights raw:', data.flights?.outbound?.flights);
+            console.log('📦 Return flights raw:', data.flights?.return?.flights);
+            
             // Render outbound flights
             if (data.flights && data.flights.outbound && data.flights.outbound.flights && data.flights.outbound.flights.length > 0) {
                 // Filter out flights with 0 price
@@ -312,6 +328,8 @@
                     const price = parseFloat(f.price);
                     return !isNaN(price) && price > 0;
                 });
+                
+                console.log('📦 Valid outbound flights after filter:', validFlights);
                 
                 if (validFlights.length > 0) {
                     const outboundFlights = validFlights.map(f => ({
@@ -323,20 +341,10 @@
                         .map((f, i) => createFlightCard(f, 'outbound', i))
                         .join('');
                 } else {
-                    outboundContainer.innerHTML = `
-                        <div class="no-flights">
-                            <i class="fas fa-info-circle"></i>
-                            <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
-                        </div>
-                    `;
+                    outboundContainer.innerHTML = createNoFlightsMessage(data, 'outbound');
                 }
             } else {
-                outboundContainer.innerHTML = `
-                    <div class="no-flights">
-                        <i class="fas fa-info-circle"></i>
-                        <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
-                    </div>
-                `;
+                outboundContainer.innerHTML = createNoFlightsMessage(data, 'outbound');
             }
             
             // Render return flights
@@ -357,23 +365,51 @@
                         returnContainer.innerHTML = returnFlights
                             .map((f, i) => createFlightCard(f, 'return', i))
                             .join('');
-                    } else {
-                        returnContainer.innerHTML = `
-                            <div class="no-flights">
-                                <i class="fas fa-info-circle"></i>
-                                <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
-                            </div>
-                        `;
-                    }
-                } else {
-                    returnContainer.innerHTML = `
-                        <div class="no-flights">
-                            <i class="fas fa-info-circle"></i>
-                            <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
+} else {
+                    returnContainer.innerHTML = createNoFlightsMessage(data, 'return');
+                }
+            } else {
+                returnContainer.innerHTML = createNoFlightsMessage(data, 'return');
+            }
+        }
+        
+        // Create detailed no-flights message with debug info
+        function createNoFlightsMessage(data, type) {
+            const rawFlights = type === 'outbound' 
+                ? data.flights?.outbound?.flights 
+                : data.flights?.return?.flights;
+            
+            const debugInfo = data.timing?.searchId 
+                ? `<br><small class="debug-id">Search ID: ${data.timing.searchId}</small>` 
+                : '';
+            
+            // Check if there were flights that got filtered out
+            if (rawFlights && rawFlights.length > 0) {
+                const filteredOut = rawFlights.filter(f => {
+                    const price = parseFloat(f.price);
+                    return isNaN(price) || price <= 0;
+                });
+                if (filteredOut.length > 0) {
+                    return `
+                        <div class="no-flights debug">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Fluturime u gjetën por çmimet nuk janë të vlefshme</p>
+                            <small>Found ${rawFlights.length} flights but prices were invalid (0 or missing)</small>
+                            ${debugInfo}
                         </div>
                     `;
                 }
             }
+            
+            return `
+                <div class="no-flights">
+                    <i class="fas fa-info-circle"></i>
+                    <p>Nuk u gjetën fluturime për datën e zgjedhur</p>
+                    <small>Scraper returned ${rawFlights?.length || 0} flights</small>
+                    ${debugInfo}
+                </div>
+            `;
+        }
         }
 
         // Search flights

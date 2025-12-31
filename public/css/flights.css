@@ -425,6 +425,23 @@
     color: #ef4444;
 }
 
+.no-flights.debug i {
+    color: #f59e0b;
+}
+
+.no-flights small {
+    display: block;
+    margin-top: var(--space-sm);
+    font-size: 0.7rem;
+    color: var(--color-gray-400);
+}
+
+.no-flights .debug-id {
+    font-family: 'Monaco', 'Consolas', monospace;
+    color: var(--color-gray-400);
+    font-size: 0.6rem;
+}
+
 /* =============================================
    BOOKING BAR
    ============================================= */
