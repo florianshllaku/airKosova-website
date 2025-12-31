@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
 const PerformanceLogger = require('./performanceLogger');
 
 // Airport codes mapping
@@ -24,20 +26,21 @@ const cityNames = {
 };
 
 // ============================================
-// ENVIRONMENT SETTINGS
+// BALANCED SPEED SETTINGS
+// Fast but reliable - works on both local & server
 // ============================================
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const DEBUG_MODE = process.env.DEBUG_BROWSER === 'true';
 const VERBOSE = process.env.VERBOSE_LOG === 'true' || !IS_PRODUCTION;
 
-// Speed settings - production uses tighter timings
-const WAIT_SHORT = IS_PRODUCTION ? 20 : 30;
-const WAIT_MEDIUM = IS_PRODUCTION ? 50 : 60;
-const WAIT_LONG = IS_PRODUCTION ? 100 : 120;
-const WAIT_PAGE_LOAD = IS_PRODUCTION ? 200 : 300;
-const TYPE_DELAY = IS_PRODUCTION ? 3 : 5;
+// BALANCED timings - tested for reliability + speed
+const WAIT_TINY = 30;      // Minimal pause
+const WAIT_SHORT = 60;     // Quick actions
+const WAIT_MEDIUM = 120;   // Dropdown/typing
+const WAIT_LONG = 250;     // Complex actions
+const WAIT_PAGE = 500;     // After page load
+const TYPE_DELAY = 8;      // Typing speed
 
-// Minimal logging for production
 function log(emoji, message) {
     if (VERBOSE) {
         const timestamp = new Date().toLocaleTimeString();
@@ -52,6 +55,24 @@ function logAlways(emoji, message) {
 
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function saveDebugInfo(page, searchParams, reason) {
+    try {
+        const debugDir = path.join(__dirname, '..', 'logs', 'debug');
+        if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const prefix = `debug_${timestamp}`;
+        
+        await page.screenshot({ path: path.join(debugDir, `${prefix}.png`), fullPage: true });
+        fs.writeFileSync(path.join(debugDir, `${prefix}.html`), await page.content());
+        fs.writeFileSync(path.join(debugDir, `${prefix}.json`), JSON.stringify({ timestamp, reason, url: page.url(), searchParams }, null, 2));
+        
+        logAlways('📸', `Debug saved: ${prefix}`);
+    } catch (e) {
+        logAlways('⚠️', 'Debug save failed: ' + e.message);
+    }
 }
 
 async function searchFlights(searchParams, performanceLogger = null) {
@@ -72,64 +93,33 @@ async function searchFlights(searchParams, performanceLogger = null) {
     const totalChildren = parseInt(children) || 0;
     const totalInfants = parseInt(infants) || 0;
     
-    logAlways('🔍', `Search: ${fromCode}→${toCode} | ${depDate.toLocaleDateString()}${retDate ? ' - ' + retDate.toLocaleDateString() : ''}`);
+    logAlways('🔍', `Search: ${fromCode}→${toCode} | ${depDate.toLocaleDateString()}${retDate ? ' → ' + retDate.toLocaleDateString() : ''}`);
     
-    let browser;
+    let browser, page;
+    
     try {
-        // STEP 1: Launch browser - OPTIMIZED FOR PRODUCTION
+        // STEP 1: Launch browser (target: <500ms)
         perf.startStep('browser_launch');
         
-        const launchOptions = {
+        browser = await puppeteer.launch({
             headless: DEBUG_MODE ? false : 'new',
             args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-extensions',
-                '--disable-background-networking',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-breakpad',
-                '--disable-component-extensions-with-background-pages',
-                '--disable-component-update',
-                '--disable-default-apps',
-                '--disable-features=TranslateUI',
-                '--disable-hang-monitor',
-                '--disable-ipc-flooding-protection',
-                '--disable-popup-blocking',
-                '--disable-prompt-on-repost',
-                '--disable-renderer-backgrounding',
-                '--disable-sync',
-                '--metrics-recording-only',
-                '--mute-audio',
-                '--no-first-run',
-                '--disable-software-rasterizer',
-                '--window-size=1200,800'
+                '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+                '--disable-gpu', '--disable-extensions', '--disable-background-networking',
+                '--disable-default-apps', '--disable-sync', '--mute-audio', '--no-first-run',
+                '--window-size=1280,900'
             ],
-            defaultViewport: { width: 1200, height: 800 }
-        };
+            defaultViewport: { width: 1280, height: 900 },
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        });
         
-        // Use system Chrome if available (faster than bundled Chromium)
-        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-            log('🔧', 'Using custom Chrome path');
-        }
+        page = await browser.newPage();
         
-        browser = await puppeteer.launch(launchOptions);
-        const page = await browser.newPage();
-        
-        // Block resources BEFORE navigation
+        // Block heavy resources
         await page.setRequestInterception(true);
-        page.on('request', (req) => {
-            const type = req.resourceType();
-            const url = req.url();
-            
-            if (type === 'image' || type === 'font' || type === 'media' ||
-                url.includes('google-analytics') || url.includes('googletagmanager') ||
-                url.includes('facebook') || url.includes('hotjar') || url.includes('clarity') ||
-                url.includes('.png') || url.includes('.jpg') || url.includes('.gif') ||
-                url.includes('.woff') || url.includes('.woff2') || url.includes('.ico')) {
+        page.on('request', req => {
+            const t = req.resourceType();
+            if (t === 'image' || t === 'font' || t === 'media' || req.url().includes('analytics') || req.url().includes('facebook')) {
                 req.abort();
             } else {
                 req.continue();
@@ -139,130 +129,104 @@ async function searchFlights(searchParams, performanceLogger = null) {
         perf.endStep('browser_launch');
         log('✅', `Browser: ${perf.getStepDuration('browser_launch')}ms`);
         
-        // STEP 2: Navigate
+        // STEP 2: Navigate (target: <1.5s)
         perf.startStep('page_navigation');
         
         await page.goto('https://www.prishtinaticket.net/en', { 
-            waitUntil: 'domcontentloaded',
+            waitUntil: 'domcontentloaded',  // FAST - don't wait for all resources
             timeout: 20000 
         });
         
-        // Inject speed CSS
-        await page.addStyleTag({
-            content: '*, *::before, *::after { animation: none !important; transition: none !important; }'
-        });
+        // Disable animations
+        await page.addStyleTag({ content: '* { animation: none !important; transition: none !important; }' });
+        await wait(WAIT_PAGE);
         
-        await wait(WAIT_PAGE_LOAD);
         perf.endStep('page_navigation');
         log('✅', `Navigate: ${perf.getStepDuration('page_navigation')}ms`);
         
-        // STEP 3: Fill form
+        // STEP 3: Form filling (target: <800ms)
         perf.startStep('form_filling');
         
         // Trip type
         if (tripType === 'oneway') {
             await page.evaluate(() => {
-                const labels = document.querySelectorAll('label');
-                for (const l of labels) {
-                    if (l.textContent.toLowerCase().includes('one way')) { l.click(); break; }
-                }
+                const l = [...document.querySelectorAll('label')].find(x => x.textContent.toLowerCase().includes('one way'));
+                if (l) l.click();
             });
             await wait(WAIT_SHORT);
         }
         
         // Departure
         await page.evaluate(() => {
-            const inputs = document.querySelectorAll('input[matinput], input[aria-autocomplete]');
-            if (inputs[0]) { inputs[0].value = ''; inputs[0].focus(); inputs[0].click(); }
+            const inp = document.querySelectorAll('input[matinput], input[aria-autocomplete]')[0];
+            if (inp) { inp.value = ''; inp.focus(); inp.click(); }
         });
-        await wait(WAIT_SHORT);
+        await wait(WAIT_TINY);
         await page.keyboard.type(fromCity, { delay: TYPE_DELAY });
         await wait(WAIT_MEDIUM);
-        await page.evaluate(() => {
-            const opt = document.querySelector('mat-option, [role="option"]');
-            if (opt) opt.click();
-        });
+        await page.evaluate(() => document.querySelector('mat-option, [role="option"]')?.click());
         await wait(WAIT_SHORT);
         
         // Destination
         await page.evaluate(() => {
-            const inputs = document.querySelectorAll('input[matinput], input[aria-autocomplete]');
-            if (inputs[1]) { inputs[1].value = ''; inputs[1].focus(); inputs[1].click(); }
+            const inp = document.querySelectorAll('input[matinput], input[aria-autocomplete]')[1];
+            if (inp) { inp.value = ''; inp.focus(); inp.click(); }
         });
-        await wait(WAIT_SHORT);
+        await wait(WAIT_TINY);
         await page.keyboard.type(toCity, { delay: TYPE_DELAY });
         await wait(WAIT_MEDIUM);
-        await page.evaluate(() => {
-            const opt = document.querySelector('mat-option, [role="option"]');
-            if (opt) opt.click();
-        });
+        await page.evaluate(() => document.querySelector('mat-option, [role="option"]')?.click());
         await wait(WAIT_SHORT);
         
         perf.endStep('form_filling');
         log('✅', `Form: ${perf.getStepDuration('form_filling')}ms`);
         
-        // STEP 4: Dates
+        // STEP 4: Dates (target: <500ms)
         perf.startStep('select_dates');
         
-        const targetDepMonth = depDate.getMonth();
-        const targetDepYear = depDate.getFullYear();
-        const targetDepDay = depDate.getDate();
-        
-        const datePickerSelector = tripType === 'oneway' ? 'lib-datepicker button' : 'lib-range-datepicker button';
+        const datePickerBtn = tripType === 'oneway' ? 'lib-datepicker button' : 'lib-range-datepicker button';
         
         try {
-            await page.waitForSelector(datePickerSelector, { timeout: 2000 });
-            await page.click(datePickerSelector);
+            await page.waitForSelector(datePickerBtn, { timeout: 3000 });
+            await page.click(datePickerBtn);
             await wait(WAIT_MEDIUM);
             
-            const navigateToMonth = async (targetMonth, targetYear) => {
+            // Fast month navigation
+            const navToMonth = async (tMonth, tYear) => {
                 for (let i = 0; i < 24; i++) {
-                    const current = await page.evaluate(() => {
+                    const cur = await page.evaluate(() => {
                         const btn = document.querySelector('.mat-calendar-period-button');
                         if (!btn) return null;
-                        const text = btn.textContent.trim().toUpperCase();
+                        const txt = btn.textContent.toUpperCase();
                         const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-                        let month = -1;
-                        for (let i = 0; i < months.length; i++) {
-                            if (text.includes(months[i])) { month = i; break; }
-                        }
-                        const yearMatch = text.match(/20\d{2}/);
-                        return { month, year: yearMatch ? parseInt(yearMatch[0]) : -1 };
+                        const m = months.findIndex(x => txt.includes(x));
+                        const y = txt.match(/20\d{2}/);
+                        return { m, y: y ? parseInt(y[0]) : -1 };
                     });
-                    
-                    if (!current || current.month === -1) break;
-                    if (current.year === targetYear && current.month === targetMonth) break;
-                    
-                    const currentTotal = current.year * 12 + current.month;
-                    const targetTotal = targetYear * 12 + targetMonth;
-                    
-                    await page.click(targetTotal > currentTotal ? '.mat-calendar-next-button' : '.mat-calendar-previous-button');
-                    await wait(WAIT_SHORT);
+                    if (!cur || cur.m === -1) break;
+                    if (cur.y === tYear && cur.m === tMonth) break;
+                    await page.click((tYear * 12 + tMonth) > (cur.y * 12 + cur.m) ? '.mat-calendar-next-button' : '.mat-calendar-previous-button');
+                    await wait(WAIT_TINY);
                 }
             };
             
-            await navigateToMonth(targetDepMonth, targetDepYear);
-            
-            await page.evaluate((day) => {
+            await navToMonth(depDate.getMonth(), depDate.getFullYear());
+            await page.evaluate(d => {
                 const cells = document.querySelectorAll('.mat-calendar-body-cell');
-                for (const cell of cells) {
-                    const content = cell.querySelector('.mat-calendar-body-cell-content');
-                    if (content && content.textContent.trim() === day.toString()) {
-                        cell.click(); break;
-                    }
+                for (const c of cells) {
+                    const t = c.querySelector('.mat-calendar-body-cell-content');
+                    if (t && t.textContent.trim() === d.toString()) { c.click(); break; }
                 }
-            }, targetDepDay);
+            }, depDate.getDate());
             await wait(WAIT_SHORT);
             
             if (tripType !== 'oneway' && retDate) {
-                await navigateToMonth(retDate.getMonth(), retDate.getFullYear());
-                await page.evaluate((day) => {
+                await navToMonth(retDate.getMonth(), retDate.getFullYear());
+                await page.evaluate(d => {
                     const cells = document.querySelectorAll('.mat-calendar-body-cell');
-                    for (const cell of cells) {
-                        const content = cell.querySelector('.mat-calendar-body-cell-content');
-                        if (content && content.textContent.trim() === day.toString()) {
-                            cell.click(); break;
-                        }
+                    for (const c of cells) {
+                        const t = c.querySelector('.mat-calendar-body-cell-content');
+                        if (t && t.textContent.trim() === d.toString()) { c.click(); break; }
                     }
                 }, retDate.getDate());
                 await wait(WAIT_SHORT);
@@ -270,63 +234,59 @@ async function searchFlights(searchParams, performanceLogger = null) {
             
             await page.keyboard.press('Escape');
         } catch (e) {
-            log('⚠️', 'Date error');
+            log('⚠️', 'Date error: ' + e.message);
         }
         
         perf.endStep('select_dates');
         log('✅', `Dates: ${perf.getStepDuration('select_dates')}ms`);
         
-        // STEP 5: Passengers
+        // STEP 5: Passengers (only if needed)
         if (totalAdults > 1 || totalChildren > 0 || totalInfants > 0) {
+            perf.startStep('set_passengers');
             try {
-                const passengerBtn = await page.$('lib-button button');
-                if (passengerBtn) {
-                    await passengerBtn.click();
-                    await wait(WAIT_MEDIUM);
-                    
-                    const addPassenger = async (idx, count) => {
-                        for (let i = 0; i < count; i++) {
-                            await page.evaluate((index) => {
-                                const item = document.querySelector(`lib-passenger-selection-item:nth-child(${index})`);
-                                if (item) {
-                                    const btns = item.querySelectorAll('button');
-                                    for (const b of btns) if (b.textContent.includes('+')) { b.click(); break; }
-                                }
-                            }, idx);
-                            await wait(WAIT_SHORT);
-                        }
-                    };
-                    
-                    if (totalAdults > 1) await addPassenger(1, totalAdults - 1);
-                    if (totalChildren > 0) await addPassenger(3, totalChildren);
-                    if (totalInfants > 0) await addPassenger(5, totalInfants);
-                    
-                    await page.keyboard.press('Escape');
-                }
+                await page.click('lib-button button');
+                await wait(WAIT_MEDIUM);
+                
+                const addP = async (idx, cnt) => {
+                    for (let i = 0; i < cnt; i++) {
+                        await page.evaluate(idx => {
+                            const item = document.querySelector(`lib-passenger-selection-item:nth-child(${idx})`);
+                            if (item) [...item.querySelectorAll('button')].find(b => b.textContent.includes('+'))?.click();
+                        }, idx);
+                        await wait(WAIT_TINY);
+                    }
+                };
+                
+                if (totalAdults > 1) await addP(1, totalAdults - 1);
+                if (totalChildren > 0) await addP(3, totalChildren);
+                if (totalInfants > 0) await addP(5, totalInfants);
+                
+                await page.keyboard.press('Escape');
             } catch (e) {}
+            perf.endStep('set_passengers');
+            log('✅', `Passengers: ${perf.getStepDuration('set_passengers')}ms`);
         }
         
-        // STEP 6: Search & Wait
+        // STEP 6: Search & wait (target: <2s)
         perf.startStep('search_and_wait');
         
         await page.evaluate(() => {
-            const btns = document.querySelectorAll('button');
-            for (const b of btns) {
-                if (b.textContent.toLowerCase().includes('search')) { b.click(); break; }
-            }
+            const btn = [...document.querySelectorAll('button')].find(b => b.textContent.toLowerCase().includes('search'));
+            if (btn) btn.click();
         });
         
         try {
-            await page.waitForSelector('lib-modern-flight-availability', { timeout: 8000 });
-            await wait(IS_PRODUCTION ? 400 : 600);
+            await page.waitForSelector('lib-modern-flight-availability', { timeout: 10000 });
+            await wait(800);  // Let content render
         } catch (e) {
-            await wait(1000);
+            log('⚠️', 'Timeout - checking anyway');
+            await wait(1500);
         }
         
         perf.endStep('search_and_wait');
         log('✅', `Search: ${perf.getStepDuration('search_and_wait')}ms`);
         
-        // STEP 7: Extract
+        // STEP 7: Extract (target: <50ms)
         perf.startStep('extract_data');
         
         const flightData = await page.evaluate((fromCode, toCode) => {
@@ -335,52 +295,48 @@ async function searchFlights(searchParams, performanceLogger = null) {
                 return: { route: { fromCode: toCode, toCode: fromCode }, flights: [] }
             };
             
-            function extractFlights(container) {
+            function extract(container) {
                 if (!container) return [];
+                const txt = container.textContent || '';
+                const times = txt.match(/\d{2}:\d{2}/g) || [];
+                const eurP = txt.match(/€\s*(\d+)/g) || [];
+                const chfP = txt.match(/CHF\s*(\d+)/g) || [];
+                const durs = txt.match(/\d+h\s*\d*\s*min/gi) || [];
                 const flights = [];
-                const text = container.textContent || '';
-                const times = text.match(/\d{2}:\d{2}/g) || [];
-                const eurPrices = text.match(/€\s*(\d+)/g) || [];
-                const chfPrices = text.match(/CHF\s*(\d+)/g) || [];
-                const durations = text.match(/\d+h\s*\d*\s*min/gi) || [];
                 
                 for (let i = 0; i < times.length - 1; i += 2) {
-                    let price = '0', currency = 'EUR';
                     const idx = Math.floor(i / 2);
+                    let price = '0', currency = 'EUR';
                     
-                    if (eurPrices[idx]) {
-                        const m = eurPrices[idx].match(/(\d+)/);
-                        if (m) price = m[1];
-                    } else if (chfPrices[idx]) {
-                        const m = chfPrices[idx].match(/(\d+)/);
-                        if (m) { price = m[1]; currency = 'CHF'; }
-                    } else if (eurPrices[0]) {
-                        const m = eurPrices[0].match(/(\d+)/);
-                        if (m) price = m[1];
-                    }
+                    if (eurP[idx]) { price = eurP[idx].match(/(\d+)/)?.[1] || '0'; }
+                    else if (chfP[idx]) { price = chfP[idx].match(/(\d+)/)?.[1] || '0'; currency = 'CHF'; }
+                    else if (eurP[0]) { price = eurP[0].match(/(\d+)/)?.[1] || '0'; }
                     
                     if (parseFloat(price) > 0) {
-                        flights.push({ departureTime: times[i], arrivalTime: times[i + 1], duration: durations[idx] || '2h', price, currency });
+                        flights.push({ departureTime: times[i], arrivalTime: times[i+1], duration: durs[idx] || '2h', price, currency });
                     }
                 }
                 return flights;
             }
             
             const containers = document.querySelectorAll('lib-modern-flight-availability');
-            if (containers[0]) results.outbound.flights = extractFlights(containers[0]);
-            if (containers[1]) results.return.flights = extractFlights(containers[1]);
+            if (containers[0]) results.outbound.flights = extract(containers[0]);
+            if (containers[1]) results.return.flights = extract(containers[1]);
             
             return results;
         }, fromCode, toCode);
         
         perf.endStep('extract_data');
         
-        // Summary log
-        logAlways('✈️', `Found: ${flightData.outbound.flights.length} outbound, ${flightData.return.flights.length} return`);
+        // Results
+        logAlways('✈️', `Found: ${flightData.outbound.flights.length} out, ${flightData.return.flights.length} ret`);
         
-        if (DEBUG_MODE) {
-            await wait(3000);
+        if (flightData.outbound.flights.length === 0 && flightData.return.flights.length === 0) {
+            logAlways('⚠️', 'No flights - saving debug');
+            await saveDebugInfo(page, searchParams, 'No flights');
         }
+        
+        if (DEBUG_MODE) await wait(3000);
         
         perf.printSummary();
         
@@ -398,12 +354,8 @@ async function searchFlights(searchParams, performanceLogger = null) {
         
     } catch (error) {
         logAlways('❌', 'Error: ' + error.message);
-        return {
-            success: false,
-            error: error.message,
-            flights: { outbound: { flights: [] }, return: { flights: [] } },
-            performanceLogger: perf
-        };
+        if (page) await saveDebugInfo(page, searchParams, error.message);
+        return { success: false, error: error.message, flights: { outbound: { flights: [] }, return: { flights: [] } }, performanceLogger: perf };
     } finally {
         if (browser) {
             perf.startStep('browser_close');
