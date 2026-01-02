@@ -36,6 +36,8 @@ const VERBOSE = process.env.VERBOSE_LOG === 'true' || !IS_PRODUCTION;
 const SLOW_MO_MS = parseInt(process.env.SLOW_MO_MS || '0', 10) || 0;
 // Optional: log a few extracted prices to help debug production mismatches
 const PRICE_DEBUG = process.env.PRICE_DEBUG === 'true';
+// Optional: always save a debug snapshot (png/html/json) after each search (useful for prod debugging)
+const SAVE_DEBUG_ALWAYS = process.env.SAVE_DEBUG_ALWAYS === 'true';
 
 // OPTIMIZED timings - safe reductions for speed
 const WAIT_TINY = 30;      // Minimal pause
@@ -303,7 +305,7 @@ async function returnToHomepage(page) {
     }
 }
 
-async function saveDebugInfo(page, searchParams, reason) {
+async function saveDebugInfo(page, searchParams, reason, extra = null) {
     try {
         const debugDir = path.join(__dirname, '..', 'logs', 'debug');
         if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
@@ -313,7 +315,10 @@ async function saveDebugInfo(page, searchParams, reason) {
         
         await page.screenshot({ path: path.join(debugDir, `${prefix}.png`), fullPage: true });
         fs.writeFileSync(path.join(debugDir, `${prefix}.html`), await page.content());
-        fs.writeFileSync(path.join(debugDir, `${prefix}.json`), JSON.stringify({ timestamp, reason, url: page.url(), searchParams }, null, 2));
+        fs.writeFileSync(
+            path.join(debugDir, `${prefix}.json`),
+            JSON.stringify({ timestamp, reason, url: page.url(), searchParams, extra }, null, 2)
+        );
         
         logAlways('📸', `Debug saved: ${prefix}`);
     } catch (e) {
@@ -551,11 +556,12 @@ async function searchFlights(searchParams, performanceLogger = null) {
         // STEP 7: Extract (target: <50ms)
         perf.startStep('extract_data');
         
-        const flightData = await page.evaluate(({ fromCode, toCode }) => {
+        const flightData = await page.evaluate(({ fromCode, toCode, priceDebug }) => {
             const results = {
                 outbound: { route: { fromCode, toCode }, flights: [] },
                 return: { route: { fromCode: toCode, toCode: fromCode }, flights: [] }
             };
+            const debugPriceSamples = { outbound: [], return: [] };
 
             const isBookingContext = !!document.querySelector('app-booking, body app-root app-booking') ||
                 /\/flights\/booking/i.test(location.href) ||
@@ -670,13 +676,26 @@ async function searchFlights(searchParams, performanceLogger = null) {
                     seen.add(key);
 
                     const priceNum = priceObj?.price ? parseFloat(priceObj.price) : NaN;
-                    flights.push({
+                    const flight = {
                         departureTime: times[0],
                         arrivalTime: times[1],
                         duration,
                         price: (!isNaN(priceNum) && priceNum > 0) ? priceObj.price : null,
                         currency: (!isNaN(priceNum) && priceNum > 0) ? priceObj.currency : null
-                    });
+                    };
+                    flights.push(flight);
+
+                    if (priceDebug) {
+                        // store small sample only to avoid huge payload
+                        if (debugPriceSamples && debugPriceSamples.__activeList && debugPriceSamples[debugPriceSamples.__activeList]?.length < 5) {
+                            debugPriceSamples[debugPriceSamples.__activeList].push({
+                                times: `${flight.departureTime}-${flight.arrivalTime}`,
+                                priceTxt: String(priceTxt).slice(0, 120),
+                                parsed: `${flight.currency || ''}${flight.price ?? '—'}`,
+                                url: location.href
+                            });
+                        }
+                    }
                 }
 
                 return flights;
@@ -714,11 +733,17 @@ async function searchFlights(searchParams, performanceLogger = null) {
             );
 
             if (isBookingContext) {
-                if (outboundList) results.outbound.flights = extractFromList(outboundList);
-                if (returnList) results.return.flights = extractFromList(returnList);
+                if (outboundList) {
+                    debugPriceSamples.__activeList = 'outbound';
+                    results.outbound.flights = extractFromList(outboundList);
+                }
+                if (returnList) {
+                    debugPriceSamples.__activeList = 'return';
+                    results.return.flights = extractFromList(returnList);
+                }
             } else {
                 // Safety: never scrape prices from non-booking pages (homepage has "offers" prices that are unrelated)
-                return results;
+                return { results, debugPriceSamples };
             }
 
             // Fallback (if selectors change)
@@ -728,24 +753,39 @@ async function searchFlights(searchParams, performanceLogger = null) {
                 if (containers[1] && results.return.flights.length === 0) results.return.flights = extractFallback(containers[1]);
             }
             
-            return results;
-        }, { fromCode, toCode });
+            return { results, debugPriceSamples };
+        }, { fromCode, toCode, priceDebug: PRICE_DEBUG });
+
+        const extracted = flightData?.results || flightData || {};
 
         if (PRICE_DEBUG) {
-            const sampleOut = (flightData?.outbound?.flights || []).slice(0, 3);
-            const sampleRet = (flightData?.return?.flights || []).slice(0, 3);
+            const sampleOut = (extracted?.outbound?.flights || []).slice(0, 3);
+            const sampleRet = (extracted?.return?.flights || []).slice(0, 3);
             logAlways('💰', `Price samples OUT: ${sampleOut.map(f => `${f.departureTime}-${f.arrivalTime}:${f.currency || ''}${f.price ?? '—'}`).join(' | ')}`);
             logAlways('💰', `Price samples RET: ${sampleRet.map(f => `${f.departureTime}-${f.arrivalTime}:${f.currency || ''}${f.price ?? '—'}`).join(' | ')}`);
+            const debugSamples = flightData?.debugPriceSamples;
+            if (debugSamples?.outbound?.length) logAlways('🧾', `Raw OUT: ${debugSamples.outbound.map(x => `${x.times} [${x.priceTxt}] -> ${x.parsed}`).join(' | ')}`);
+            if (debugSamples?.return?.length) logAlways('🧾', `Raw RET: ${debugSamples.return.map(x => `${x.times} [${x.priceTxt}] -> ${x.parsed}`).join(' | ')}`);
         }
         
         perf.endStep('extract_data');
         
         // Results
-        logAlways('✈️', `Found: ${flightData.outbound.flights.length} out, ${flightData.return.flights.length} ret`);
+        logAlways('✈️', `Found: ${extracted.outbound?.flights?.length || 0} out, ${extracted.return?.flights?.length || 0} ret`);
         
-        if (flightData.outbound.flights.length === 0 && flightData.return.flights.length === 0) {
+        if ((extracted.outbound?.flights?.length || 0) === 0 && (extracted.return?.flights?.length || 0) === 0) {
             logAlways('⚠️', 'No flights - saving debug');
             await saveDebugInfo(page, searchParams, 'No flights');
+        }
+        
+        if (SAVE_DEBUG_ALWAYS) {
+            await saveDebugInfo(page, searchParams, 'SAVE_DEBUG_ALWAYS', {
+                flights: {
+                    outbound: (extracted.outbound?.flights || []).slice(0, 10),
+                    return: (extracted.return?.flights || []).slice(0, 10)
+                },
+                debugPriceSamples: PRICE_DEBUG ? flightData?.debugPriceSamples : undefined
+            });
         }
         
         // STEP 8: (Temporarily disabled) Return to homepage (click logo)
@@ -762,8 +802,8 @@ async function searchFlights(searchParams, performanceLogger = null) {
             url: page.url(),
             searchParams: { from: departure, to: destination, fromCode, toCode, departureDate, returnDate, adults: totalAdults, children: totalChildren, infants: totalInfants, tripType },
             flights: {
-                outbound: { route: flightData.outbound.route, flights: flightData.outbound.flights },
-                return: { route: flightData.return.route, flights: flightData.return.flights },
+                outbound: { route: extracted.outbound?.route, flights: extracted.outbound?.flights || [] },
+                return: { route: extracted.return?.route, flights: extracted.return?.flights || [] },
                 currency: 'EUR'
             },
             performanceLogger: perf,
