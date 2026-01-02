@@ -34,6 +34,8 @@ const DEBUG_MODE = process.env.DEBUG_BROWSER === 'true';
 const VERBOSE = process.env.VERBOSE_LOG === 'true' || !IS_PRODUCTION;
 // Optional: slow down Playwright actions when debugging (milliseconds). Example: SLOW_MO_MS=75
 const SLOW_MO_MS = parseInt(process.env.SLOW_MO_MS || '0', 10) || 0;
+// Optional: log a few extracted prices to help debug production mismatches
+const PRICE_DEBUG = process.env.PRICE_DEBUG === 'true';
 
 // OPTIMIZED timings - safe reductions for speed
 const WAIT_TINY = 30;      // Minimal pause
@@ -541,6 +543,10 @@ async function searchFlights(searchParams, performanceLogger = null) {
                 outbound: { route: { fromCode, toCode }, flights: [] },
                 return: { route: { fromCode: toCode, toCode: fromCode }, flights: [] }
             };
+
+            const isBookingContext = !!document.querySelector('app-booking, body app-root app-booking') ||
+                /\/flights\/booking/i.test(location.href) ||
+                !!document.querySelector('.booking-flights__body, app-availabilities');
             
             function normalizePriceNumber(raw) {
                 if (!raw) return null;
@@ -604,6 +610,21 @@ async function searchFlights(searchParams, performanceLogger = null) {
                 return null;
             }
 
+            function findPriceTextWithin(node) {
+                if (!node) return null;
+                // Prefer elements likely to contain the actual fare amount
+                const preferred = node.querySelectorAll(
+                    '[class*="price"], [class*="amount"], [data-cy*="price"], [data-testid*="price"], [aria-label*="price" i]'
+                );
+                const all = preferred.length ? preferred : node.querySelectorAll('*');
+                for (const el of all) {
+                    const txt = (el.innerText || el.textContent || '').trim();
+                    if (!txt) continue;
+                    if (/€\s*\d|CHF\s*\d|\d\s*€|\d\s*CHF/i.test(txt)) return txt;
+                }
+                return null;
+            }
+
             function extractFromList(listEl) {
                 if (!listEl) return [];
                 // The `.space-y-5` div is a list container; each direct child is typically a card.
@@ -620,7 +641,8 @@ async function searchFlights(searchParams, performanceLogger = null) {
 
                     // IMPORTANT: never make up prices.
                     // If we can't find a real price for this flight card, keep the flight but mark price as null.
-                    const priceObj = parsePrice(txt);
+                    const priceTxt = findPriceTextWithin(node) || txt;
+                    const priceObj = parsePrice(priceTxt);
 
                     const durMatch =
                         txt.match(/\b\d+\s*h\s*\d+\s*min\b/i) ||
@@ -678,8 +700,13 @@ async function searchFlights(searchParams, performanceLogger = null) {
                 'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(2) > div > div.space-y-5'
             );
 
-            if (outboundList) results.outbound.flights = extractFromList(outboundList);
-            if (returnList) results.return.flights = extractFromList(returnList);
+            if (isBookingContext) {
+                if (outboundList) results.outbound.flights = extractFromList(outboundList);
+                if (returnList) results.return.flights = extractFromList(returnList);
+            } else {
+                // Safety: never scrape prices from non-booking pages (homepage has "offers" prices that are unrelated)
+                return results;
+            }
 
             // Fallback (if selectors change)
             if (!results.outbound.flights.length || !results.return.flights.length) {
@@ -690,6 +717,13 @@ async function searchFlights(searchParams, performanceLogger = null) {
             
             return results;
         }, { fromCode, toCode });
+
+        if (PRICE_DEBUG) {
+            const sampleOut = (flightData?.outbound?.flights || []).slice(0, 3);
+            const sampleRet = (flightData?.return?.flights || []).slice(0, 3);
+            logAlways('💰', `Price samples OUT: ${sampleOut.map(f => `${f.departureTime}-${f.arrivalTime}:${f.currency || ''}${f.price ?? '—'}`).join(' | ')}`);
+            logAlways('💰', `Price samples RET: ${sampleRet.map(f => `${f.departureTime}-${f.arrivalTime}:${f.currency || ''}${f.price ?? '—'}`).join(' | ')}`);
+        }
         
         perf.endStep('extract_data');
         
