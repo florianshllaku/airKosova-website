@@ -26,20 +26,30 @@ const cityNames = {
 };
 
 // ============================================
-// BALANCED SPEED SETTINGS
-// Fast but reliable - works on both local & server
+// OPTIMIZED SPEED SETTINGS
 // ============================================
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+// Headless by default. Set DEBUG_BROWSER=true to see Chromium live.
 const DEBUG_MODE = process.env.DEBUG_BROWSER === 'true';
 const VERBOSE = process.env.VERBOSE_LOG === 'true' || !IS_PRODUCTION;
 
-// BALANCED timings - tested for reliability + speed
+// OPTIMIZED timings - safe reductions for speed
 const WAIT_TINY = 30;      // Minimal pause
-const WAIT_SHORT = 60;     // Quick actions
-const WAIT_MEDIUM = 120;   // Dropdown/typing
+const WAIT_SHORT = 50;     // Quick actions
+const WAIT_MEDIUM = 150;   // Dropdown/typing
 const WAIT_LONG = 250;     // Complex actions
-const WAIT_PAGE = 500;     // After page load
-const TYPE_DELAY = 8;      // Typing speed
+const WAIT_PAGE = 300;     // After page load
+const TYPE_DELAY = 50;     // Typing speed - SLOW for accuracy (50ms per character)
+
+// ============================================
+// BROWSER POOL - Keep browser alive between searches
+// ============================================
+const BROWSER_IDLE_TIMEOUT = 30 * 60 * 1000; // Close browser after 30 minutes of inactivity
+
+let browserInstance = null;
+let pageInstance = null;
+let idleTimer = null;
+let isPageReady = false;
 
 function log(emoji, message) {
     if (VERBOSE) {
@@ -55,6 +65,191 @@ function logAlways(emoji, message) {
 
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Reset the idle timer - browser will close after 5 min of no searches
+function resetIdleTimer() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(async () => {
+        logAlways('💤', 'Browser idle for 30 minutes - closing to save RAM');
+        await closeBrowser();
+    }, BROWSER_IDLE_TIMEOUT);
+}
+
+// Close browser and reset state
+async function closeBrowser() {
+    if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+    }
+    if (browserInstance) {
+        try {
+            await browserInstance.close();
+        } catch (e) {}
+        browserInstance = null;
+        pageInstance = null;
+        isPageReady = false;
+        logAlways('🔒', 'Browser closed');
+    }
+}
+
+// Get or create browser instance
+async function getBrowser() {
+    if (browserInstance) {
+        // Check if browser is still alive
+        try {
+            await browserInstance.version();
+            return browserInstance;
+        } catch (e) {
+            // Browser died, recreate
+            browserInstance = null;
+            pageInstance = null;
+            isPageReady = false;
+        }
+    }
+    
+    logAlways('🚀', 'Launching new browser instance...');
+    browserInstance = await puppeteer.launch({
+        headless: DEBUG_MODE ? false : 'new',
+        args: [
+            '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+            '--disable-gpu', '--disable-extensions', '--disable-background-networking',
+            '--disable-default-apps', '--disable-sync', '--mute-audio', '--no-first-run',
+            '--window-size=1280,900'
+        ],
+        defaultViewport: { width: 1280, height: 900 },
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+    });
+
+    // Reuse the default blank tab instead of opening a new one (prevents tab buildup)
+    try {
+        const pages = await browserInstance.pages();
+        if (pages && pages.length > 0) {
+            pageInstance = pages[0];
+            // Close any extra pages that may exist (shouldn't, but keeps things clean)
+            for (let i = 1; i < pages.length; i++) {
+                try { await pages[i].close(); } catch (e) {}
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return browserInstance;
+}
+
+// Get or create page instance (already on homepage)
+async function getPage(browser) {
+    // Always prefer reusing the same page/tab if it's still alive.
+    // Even if `isPageReady` is false (e.g. logo click failed), we can navigate it back home.
+    if (pageInstance) {
+        try {
+            await pageInstance.title();
+            return { page: pageInstance, wasReused: true };
+        } catch (e) {
+            pageInstance = null;
+            isPageReady = false;
+        }
+    }
+
+    // If we don't have a page yet, reuse the browser's first page if available.
+    try {
+        const pages = await browser.pages();
+        if (pages && pages.length > 0) {
+            pageInstance = pages[0];
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    if (!pageInstance) {
+        logAlways('📄', 'Creating new page...');
+        pageInstance = await browser.newPage();
+    }
+
+    // Block heavy resources (set up only once per page)
+    if (!pageInstance.__akInterceptionSetup) {
+        await pageInstance.setRequestInterception(true);
+        pageInstance.on('request', req => {
+            const t = req.resourceType();
+            if (t === 'image' || t === 'font' || t === 'media' || req.url().includes('analytics') || req.url().includes('facebook')) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+        pageInstance.__akInterceptionSetup = true;
+    }
+
+    return { page: pageInstance, wasReused: false };
+}
+
+// Navigate to homepage (or click logo to return)
+async function ensureOnHomepage(page, wasReused) {
+    if (wasReused) {
+        // Page was reused - should already be on homepage from previous search
+        // Verify we're on the right page
+        const url = page.url();
+        if (url.includes('prishtinaticket.net') && !url.includes('/booking')) {
+            log('♻️', 'Page already on homepage - reusing!');
+            isPageReady = true;
+            return true; // Already on homepage
+        }
+    }
+    
+    // Need to navigate to homepage
+    await page.goto('https://www.prishtinaticket.net/en', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 20000 
+    });
+    
+    // Disable animations
+    await page.addStyleTag({ content: '* { animation: none !important; transition: none !important; }' });
+    await wait(WAIT_PAGE);
+    
+    isPageReady = true;
+    return false; // Fresh navigation
+}
+
+// Click logo to return to homepage after extraction
+async function returnToHomepage(page) {
+    try {
+        // User-requested: wait a moment so the results page is visible, then click logo
+        await wait(1000);
+
+        // Click the exact logo selector you provided (most reliable)
+        const clicked = await page.evaluate(() => {
+            const exact =
+                'body > app-root > app-booking > div > div > lib-flight-header > div > div.flex.items-center.w-full.lg\\:w-auto.justify-center.lg\\:justify-start.py-4.lg\\:py-0.mr-6.lg\\:mr-0 > lib-logo > div > lib-link > a > img';
+            const logoImg = document.querySelector(exact);
+            if (logoImg) { logoImg.click(); return true; }
+
+            // Fallbacks
+            const logoAny = document.querySelector('lib-logo img, lib-logo a, lib-flight-header lib-logo');
+            if (logoAny) { logoAny.click(); return true; }
+
+            const logoLink = document.querySelector('a[href="/en"], a[href="/"]');
+            if (logoLink) { logoLink.click(); return true; }
+
+            return false;
+        });
+
+        if (!clicked) throw new Error('Logo element not found to return home');
+
+        // Wait for homepage search inputs to be present
+        await page.waitForSelector('input[aria-autocomplete], input[matinput]', { timeout: 8000 });
+        await wait(WAIT_PAGE);
+
+        // We consider ourselves "ready" once we are not on booking/results view
+        const url = page.url();
+        isPageReady = url.includes('prishtinaticket.net') && !url.includes('/booking');
+        log('🏠', `Returned to homepage via logo click (${isPageReady ? 'ready' : 'not-ready'})`);
+        return isPageReady;
+    } catch (e) {
+        log('⚠️', 'Logo click failed, will navigate fresh next time: ' + e.message);
+        isPageReady = false;
+        return false;
+    }
 }
 
 async function saveDebugInfo(page, searchParams, reason) {
@@ -95,56 +290,39 @@ async function searchFlights(searchParams, performanceLogger = null) {
     
     logAlways('🔍', `Search: ${fromCode}→${toCode} | ${depDate.toLocaleDateString()}${retDate ? ' → ' + retDate.toLocaleDateString() : ''}`);
     
-    let browser, page;
+    // Reset idle timer - browser stays alive
+    resetIdleTimer();
+    
+    let page;
+    let wasReused = false;
     
     try {
-        // STEP 1: Launch browser (target: <500ms)
+        // STEP 1: Get browser (reuse or launch)
         perf.startStep('browser_launch');
-        
-        browser = await puppeteer.launch({
-            headless: DEBUG_MODE ? false : 'new',
-            args: [
-                '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-                '--disable-gpu', '--disable-extensions', '--disable-background-networking',
-                '--disable-default-apps', '--disable-sync', '--mute-audio', '--no-first-run',
-                '--window-size=1280,900'
-            ],
-            defaultViewport: { width: 1280, height: 900 },
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-        });
-        
-        page = await browser.newPage();
-        
-        // Block heavy resources
-        await page.setRequestInterception(true);
-        page.on('request', req => {
-            const t = req.resourceType();
-            if (t === 'image' || t === 'font' || t === 'media' || req.url().includes('analytics') || req.url().includes('facebook')) {
-                req.abort();
-            } else {
-                req.continue();
-            }
-        });
-        
+        const browser = await getBrowser();
+        const pageResult = await getPage(browser);
+        page = pageResult.page;
+        wasReused = pageResult.wasReused;
         perf.endStep('browser_launch');
-        log('✅', `Browser: ${perf.getStepDuration('browser_launch')}ms`);
         
-        // STEP 2: Navigate (target: <1.5s)
+        if (wasReused) {
+            log('♻️', `Browser REUSED: ${perf.getStepDuration('browser_launch')}ms`);
+        } else {
+            log('🆕', `Browser launched: ${perf.getStepDuration('browser_launch')}ms`);
+        }
+        
+        // STEP 2: Navigate to homepage (or verify already there)
         perf.startStep('page_navigation');
-        
-        await page.goto('https://www.prishtinaticket.net/en', { 
-            waitUntil: 'domcontentloaded',  // FAST - don't wait for all resources
-            timeout: 20000 
-        });
-        
-        // Disable animations
-        await page.addStyleTag({ content: '* { animation: none !important; transition: none !important; }' });
-        await wait(WAIT_PAGE);
-        
+        const skippedNavigation = await ensureOnHomepage(page, wasReused);
         perf.endStep('page_navigation');
-        log('✅', `Navigate: ${perf.getStepDuration('page_navigation')}ms`);
         
-        // STEP 3: Form filling (target: <800ms)
+        if (skippedNavigation) {
+            log('⚡', `Navigation SKIPPED (already on homepage): ${perf.getStepDuration('page_navigation')}ms`);
+        } else {
+            log('✅', `Navigate: ${perf.getStepDuration('page_navigation')}ms`);
+        }
+
+        // STEP 3: Form filling (UI)
         perf.startStep('form_filling');
         
         // Trip type
@@ -156,32 +334,79 @@ async function searchFlights(searchParams, performanceLogger = null) {
             await wait(WAIT_SHORT);
         }
         
-        // Departure
-        await page.evaluate(() => {
-            const inp = document.querySelectorAll('input[matinput], input[aria-autocomplete]')[0];
-            if (inp) { inp.value = ''; inp.focus(); inp.click(); }
-        });
-        await wait(WAIT_TINY);
-        await page.keyboard.type(fromCity, { delay: TYPE_DELAY });
-        await wait(WAIT_MEDIUM);
-        await page.evaluate(() => document.querySelector('mat-option, [role="option"]')?.click());
-        await wait(WAIT_SHORT);
+        // === DEPARTURE CITY ===
+        // Step 1: Click the input field
+        const depInput = await page.$('input[matinput], input[aria-autocomplete]');
+        if (depInput) {
+            await depInput.click();
+            await wait(100);
+            
+            // Step 2: Clear the field completely (Ctrl+A then Backspace)
+            await page.keyboard.down('Control');
+            await page.keyboard.press('a');
+            await page.keyboard.up('Control');
+            await page.keyboard.press('Backspace');
+            await wait(100);
+            
+            // Step 3: Type the city name SLOWLY in lowercase
+            const fromCityLower = fromCity.toLowerCase();
+            log('⌨️', `Typing departure: "${fromCityLower}"`);
+            await page.keyboard.type(fromCityLower, { delay: TYPE_DELAY });
+            
+            // Step 4: Wait for dropdown to appear and filter
+            await wait(400);
+            
+            // Step 5: Click the first dropdown option
+            await page.evaluate(() => {
+                const option = document.querySelector('mat-option, [role="option"]');
+                if (option) {
+                    option.click();
+                    return true;
+                }
+                return false;
+            });
+            await wait(300);
+        }
         
-        // Destination
-        await page.evaluate(() => {
-            const inp = document.querySelectorAll('input[matinput], input[aria-autocomplete]')[1];
-            if (inp) { inp.value = ''; inp.focus(); inp.click(); }
-        });
-        await wait(WAIT_TINY);
-        await page.keyboard.type(toCity, { delay: TYPE_DELAY });
-        await wait(WAIT_MEDIUM);
-        await page.evaluate(() => document.querySelector('mat-option, [role="option"]')?.click());
-        await wait(WAIT_SHORT);
+        // === DESTINATION CITY ===
+        // Step 1: Click the second input field
+        const destInputs = await page.$$('input[matinput], input[aria-autocomplete]');
+        const destInput = destInputs[1];
+        if (destInput) {
+            await destInput.click();
+            await wait(100);
+            
+            // Step 2: Clear the field completely (Ctrl+A then Backspace)
+            await page.keyboard.down('Control');
+            await page.keyboard.press('a');
+            await page.keyboard.up('Control');
+            await page.keyboard.press('Backspace');
+            await wait(100);
+            
+            // Step 3: Type the city name SLOWLY in lowercase
+            const toCityLower = toCity.toLowerCase();
+            log('⌨️', `Typing destination: "${toCityLower}"`);
+            await page.keyboard.type(toCityLower, { delay: TYPE_DELAY });
+            
+            // Step 4: Wait for dropdown to appear and filter
+            await wait(400);
+            
+            // Step 5: Click the first dropdown option
+            await page.evaluate(() => {
+                const option = document.querySelector('mat-option, [role="option"]');
+                if (option) {
+                    option.click();
+                    return true;
+                }
+                return false;
+            });
+            await wait(300);
+        }
         
         perf.endStep('form_filling');
         log('✅', `Form: ${perf.getStepDuration('form_filling')}ms`);
         
-        // STEP 4: Dates (target: <500ms)
+        // STEP 4: Dates
         perf.startStep('select_dates');
         
         const datePickerBtn = tripType === 'oneway' ? 'lib-datepicker button' : 'lib-range-datepicker button';
@@ -267,7 +492,7 @@ async function searchFlights(searchParams, performanceLogger = null) {
             log('✅', `Passengers: ${perf.getStepDuration('set_passengers')}ms`);
         }
         
-        // STEP 6: Search & wait (target: <2s)
+        // STEP 6: Search & wait
         perf.startStep('search_and_wait');
         
         await page.evaluate(() => {
@@ -277,10 +502,32 @@ async function searchFlights(searchParams, performanceLogger = null) {
         
         try {
             await page.waitForSelector('lib-modern-flight-availability', { timeout: 10000 });
-            await wait(800);  // Let content render
+            // Wait until prices/times are actually present (sometimes results skeleton renders first)
+            try {
+                await page.waitForFunction(() => {
+                    const outboundList = document.querySelector(
+                        'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(1) > div > div.space-y-5'
+                    );
+                    const inboundList = document.querySelector(
+                        'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(2) > div > div.space-y-5'
+                    );
+
+                    const root = outboundList || inboundList || document.querySelector('lib-modern-flight-availability');
+                    if (!root) return false;
+
+                    const txt = (root.innerText || root.textContent || '');
+                    const hasTimes = (txt.match(/\b\d{2}:\d{2}\b/g) || []).length >= 2;
+                    const hasPrice = /€\s*\d|CHF\s*\d|\d\s*€|\d\s*CHF/i.test(txt);
+                    return hasTimes && hasPrice;
+                }, { timeout: 6000 });
+            } catch (e) {
+                // If it never stabilizes, we still try extraction (better than failing)
+            }
+
+            await wait(250);  // Small buffer after "ready"
         } catch (e) {
             log('⚠️', 'Timeout - checking anyway');
-            await wait(1500);
+            await wait(800);  // Reduced from 1500ms
         }
         
         perf.endStep('search_and_wait');
@@ -295,33 +542,151 @@ async function searchFlights(searchParams, performanceLogger = null) {
                 return: { route: { fromCode: toCode, toCode: fromCode }, flights: [] }
             };
             
-            function extract(container) {
-                if (!container) return [];
-                const txt = container.textContent || '';
-                const times = txt.match(/\d{2}:\d{2}/g) || [];
-                const eurP = txt.match(/€\s*(\d+)/g) || [];
-                const chfP = txt.match(/CHF\s*(\d+)/g) || [];
-                const durs = txt.match(/\d+h\s*\d*\s*min/gi) || [];
+            function normalizePriceNumber(raw) {
+                if (!raw) return null;
+                let s = String(raw).trim();
+                // Remove spaces and currency symbols/words
+                s = s.replace(/\s+/g, '');
+                s = s.replace(/[€]/g, '');
+                s = s.replace(/CHF/gi, '');
+                s = s.replace(/EUR/gi, '');
+
+                // Handle European formats:
+                //  - "1.234,56" -> "1234.56"
+                //  - "89,50" -> "89.50"
+                //  - "1,234.56" -> "1234.56"
+                const hasDot = s.includes('.');
+                const hasComma = s.includes(',');
+                if (hasDot && hasComma) {
+                    // Decide decimal separator by last occurrence
+                    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+                        // dot thousands, comma decimal
+                        s = s.replace(/\./g, '').replace(',', '.');
+                    } else {
+                        // comma thousands, dot decimal
+                        s = s.replace(/,/g, '');
+                    }
+                } else if (hasComma && !hasDot) {
+                    // If comma looks like decimal separator
+                    const parts = s.split(',');
+                    if (parts.length === 2 && parts[1].length <= 2) {
+                        s = parts[0] + '.' + parts[1];
+                    } else {
+                        s = s.replace(/,/g, '');
+                    }
+                }
+
+                // Keep only digits and dot
+                s = s.replace(/[^0-9.]/g, '');
+                if (!s) return null;
+                return s;
+            }
+
+            function parsePrice(text) {
+                const t = (text || '').replace(/\u00A0/g, ' '); // nbsp
+
+                // Patterns like: "€ 123.45" or "CHF123,45"
+                let m = t.match(/(CHF|EUR|€)\s*([0-9][0-9.,]*)/i);
+                if (m) {
+                    const cur = m[1] === '€' ? 'EUR' : m[1].toUpperCase();
+                    const num = normalizePriceNumber(m[2]);
+                    return num ? { currency: cur, price: num } : null;
+                }
+
+                // Patterns like: "123,45 €" or "123 CHF"
+                m = t.match(/([0-9][0-9.,]*)\s*(CHF|EUR|€)/i);
+                if (m) {
+                    const cur = m[2] === '€' ? 'EUR' : m[2].toUpperCase();
+                    const num = normalizePriceNumber(m[1]);
+                    return num ? { currency: cur, price: num } : null;
+                }
+
+                return null;
+            }
+
+            function extractFromList(listEl) {
+                if (!listEl) return [];
+                // The `.space-y-5` div is a list container; each direct child is typically a card.
+                const nodes = Array.from(listEl.children || []).filter(n => n && (n.innerText || n.textContent));
                 const flights = [];
-                
+                const seen = new Set();
+
+                for (const node of nodes) {
+                    const txt = (node.innerText || node.textContent || '').trim();
+                    if (!txt) continue;
+
+                    const times = txt.match(/\b\d{2}:\d{2}\b/g) || [];
+                    if (times.length < 2) continue;
+
+                    // IMPORTANT: never make up prices.
+                    // If we can't find a real price for this flight card, keep the flight but mark price as null.
+                    const priceObj = parsePrice(txt);
+
+                    const durMatch =
+                        txt.match(/\b\d+\s*h\s*\d+\s*min\b/i) ||
+                        txt.match(/\b\d+\s*h\s*\d*\s*min\b/i) ||
+                        txt.match(/\b\d+\s*h\b/i);
+                    const duration = durMatch ? durMatch[0].replace(/\s+/g, ' ').trim() : '2h';
+
+                    const key = priceObj?.price
+                        ? `${times[0]}-${times[1]}-${priceObj.currency}-${priceObj.price}`
+                        : `${times[0]}-${times[1]}-NO_PRICE`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+
+                    const priceNum = priceObj?.price ? parseFloat(priceObj.price) : NaN;
+                    flights.push({
+                        departureTime: times[0],
+                        arrivalTime: times[1],
+                        duration,
+                        price: (!isNaN(priceNum) && priceNum > 0) ? priceObj.price : null,
+                        currency: (!isNaN(priceNum) && priceNum > 0) ? priceObj.currency : null
+                    });
+                }
+
+                return flights;
+            }
+
+            function extractFallback(container) {
+                if (!container) return [];
+                const txt = (container.textContent || '').trim();
+                const times = txt.match(/\b\d{2}:\d{2}\b/g) || [];
+                const prices = txt.match(/(CHF|EUR|€)\s*[0-9][0-9.,]*/gi) || [];
+                const durs = txt.match(/\b\d+\s*h\s*\d*\s*min\b/gi) || [];
+                const flights = [];
                 for (let i = 0; i < times.length - 1; i += 2) {
                     const idx = Math.floor(i / 2);
-                    let price = '0', currency = 'EUR';
-                    
-                    if (eurP[idx]) { price = eurP[idx].match(/(\d+)/)?.[1] || '0'; }
-                    else if (chfP[idx]) { price = chfP[idx].match(/(\d+)/)?.[1] || '0'; currency = 'CHF'; }
-                    else if (eurP[0]) { price = eurP[0].match(/(\d+)/)?.[1] || '0'; }
-                    
-                    if (parseFloat(price) > 0) {
-                        flights.push({ departureTime: times[i], arrivalTime: times[i+1], duration: durs[idx] || '2h', price, currency });
-                    }
+                    // IMPORTANT: never make up prices (no "prices[0]" fallback).
+                    const priceObj = parsePrice(prices[idx] || '');
+                    const duration = (durs[idx] || durs[0] || '2h').replace(/\s+/g, ' ').trim();
+                    flights.push({
+                        departureTime: times[i],
+                        arrivalTime: times[i + 1],
+                        duration,
+                        price: priceObj?.price || null,
+                        currency: priceObj?.currency || null
+                    });
                 }
                 return flights;
             }
             
-            const containers = document.querySelectorAll('lib-modern-flight-availability');
-            if (containers[0]) results.outbound.flights = extract(containers[0]);
-            if (containers[1]) results.return.flights = extract(containers[1]);
+            // Preferred: exact list containers you provided (most reliable)
+            const outboundList = document.querySelector(
+                'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(1) > div > div.space-y-5'
+            );
+            const returnList = document.querySelector(
+                'body > app-root > app-booking > div > div > div > div.booking-flights__body > app-availabilities > lib-modern-flight-availability:nth-child(2) > div > div.space-y-5'
+            );
+
+            if (outboundList) results.outbound.flights = extractFromList(outboundList);
+            if (returnList) results.return.flights = extractFromList(returnList);
+
+            // Fallback (if selectors change)
+            if (!results.outbound.flights.length || !results.return.flights.length) {
+                const containers = document.querySelectorAll('lib-modern-flight-availability');
+                if (containers[0] && results.outbound.flights.length === 0) results.outbound.flights = extractFallback(containers[0]);
+                if (containers[1] && results.return.flights.length === 0) results.return.flights = extractFallback(containers[1]);
+            }
             
             return results;
         }, fromCode, toCode);
@@ -336,6 +701,11 @@ async function searchFlights(searchParams, performanceLogger = null) {
             await saveDebugInfo(page, searchParams, 'No flights');
         }
         
+        // STEP 8: (Temporarily disabled) Return to homepage (click logo)
+        // User request: focus on extracting correct data first.
+        // We intentionally do NOT navigate away from the results page here.
+        // Next search will still work because `ensureOnHomepage()` will navigate back to /en if needed.
+        
         if (DEBUG_MODE) await wait(3000);
         
         perf.printSummary();
@@ -349,20 +719,30 @@ async function searchFlights(searchParams, performanceLogger = null) {
                 return: { route: flightData.return.route, flights: flightData.return.flights },
                 currency: 'EUR'
             },
-            performanceLogger: perf
+            performanceLogger: perf,
+            browserReused: wasReused
         };
         
     } catch (error) {
         logAlways('❌', 'Error: ' + error.message);
         if (page) await saveDebugInfo(page, searchParams, error.message);
+        
+        // On error, mark page as not ready so next search starts fresh
+        isPageReady = false;
+        
         return { success: false, error: error.message, flights: { outbound: { flights: [] }, return: { flights: [] } }, performanceLogger: perf };
-    } finally {
-        if (browser) {
-            perf.startStep('browser_close');
-            await browser.close();
-            perf.endStep('browser_close');
-        }
     }
+    // NOTE: We don't close browser here anymore! It stays open for next search.
 }
 
-module.exports = { searchFlights, airportCodes, PerformanceLogger };
+// Graceful shutdown
+async function shutdown() {
+    logAlways('🛑', 'Shutting down browser pool...');
+    await closeBrowser();
+}
+
+// Handle process termination
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+module.exports = { searchFlights, airportCodes, PerformanceLogger, closeBrowser };

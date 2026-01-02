@@ -230,9 +230,35 @@
         
         // Create flight card HTML
         function createFlightCard(flight, type, index) {
-            const currencySymbol = getCurrencySymbol(flight.currency);
+            const hasValidPrice = flight.price !== null && flight.price !== undefined && !isNaN(parseFloat(flight.price)) && parseFloat(flight.price) > 0;
+            const currencySymbol = hasValidPrice ? getCurrencySymbol(flight.currency) : '';
+            const noPriceMessage = 'There are no seats available for the selected adults and children.';
+
+            const priceHtml = hasValidPrice
+                ? `<div class="price">
+                        <span class="currency">${currencySymbol}</span>
+                        <span class="amount">${flight.price}</span>
+                   </div>`
+                : `<div class="price no-price" title="${noPriceMessage}">
+                        <span class="amount">—</span>
+                   </div>`;
+
+            const selectBtnHtml = hasValidPrice
+                ? `<button class="select-btn" onclick="selectFlight('${type}', ${index}, '${flight.price}', '${flight.departureTime}', '${flight.arrivalTime}', '${flight.currency}')">
+                        Zgjidh
+                   </button>`
+                : `<button class="select-btn" disabled title="${noPriceMessage}">
+                        Zgjidh
+                   </button>`;
+
             return `
-                <div class="flight-card" data-type="${type}" data-index="${index}" data-price="${flight.price}" data-currency="${flight.currency}" data-time="${flight.departureTime}">
+                <div class="flight-card ${hasValidPrice ? '' : 'no-price'}"
+                     data-type="${type}"
+                     data-index="${index}"
+                     data-price="${hasValidPrice ? flight.price : ''}"
+                     data-currency="${hasValidPrice ? flight.currency : ''}"
+                     data-time="${flight.departureTime}"
+                     title="${hasValidPrice ? '' : noPriceMessage}">
                     <div class="flight-main">
                         <div class="flight-time departure">
                             <span class="time">${flight.departureTime}</span>
@@ -255,13 +281,8 @@
                         </div>
                     </div>
                     <div class="flight-price-section">
-                        <div class="price">
-                            <span class="currency">${currencySymbol}</span>
-                            <span class="amount">${flight.price}</span>
-                        </div>
-                        <button class="select-btn" onclick="selectFlight('${type}', ${index}, '${flight.price}', '${flight.departureTime}', '${flight.arrivalTime}', '${flight.currency}')">
-                            Zgjidh
-                        </button>
+                        ${priceHtml}
+                        ${selectBtnHtml}
                     </div>
                 </div>
             `;
@@ -269,6 +290,11 @@
 
         // Select a flight
         function selectFlight(type, index, price, depTime, arrTime, currency = 'EUR') {
+            // Don't allow selecting flights without a real price (we treat as no seats)
+            const parsed = parseFloat(price);
+            if (isNaN(parsed) || parsed <= 0) {
+                return;
+            }
             // Remove previous selection of this type
             document.querySelectorAll(`.flight-card[data-type="${type}"]`).forEach(card => {
                 card.classList.remove('selected');
@@ -323,26 +349,16 @@
             
             // Render outbound flights
             if (data.flights && data.flights.outbound && data.flights.outbound.flights && data.flights.outbound.flights.length > 0) {
-                // Filter out flights with 0 price
-                const validFlights = data.flights.outbound.flights.filter(f => {
-                    const price = parseFloat(f.price);
-                    return !isNaN(price) && price > 0;
-                });
-                
-                console.log('📦 Valid outbound flights after filter:', validFlights);
-                
-                if (validFlights.length > 0) {
-                    const outboundFlights = validFlights.map(f => ({
-                        ...f,
-                        fromCode: f.fromCode || fromCode,
-                        toCode: f.toCode || toCode
-                    }));
-                    outboundContainer.innerHTML = outboundFlights
-                        .map((f, i) => createFlightCard(f, 'outbound', i))
-                        .join('');
-                } else {
-                    outboundContainer.innerHTML = createNoFlightsMessage(data, 'outbound');
-                }
+                // IMPORTANT: do NOT filter out flights with missing price.
+                // We show them without a price and with a hover message instead.
+                const outboundFlights = data.flights.outbound.flights.map(f => ({
+                    ...f,
+                    fromCode: f.fromCode || fromCode,
+                    toCode: f.toCode || toCode
+                }));
+                outboundContainer.innerHTML = outboundFlights
+                    .map((f, i) => createFlightCard(f, 'outbound', i))
+                    .join('');
             } else {
                 outboundContainer.innerHTML = createNoFlightsMessage(data, 'outbound');
             }
@@ -350,24 +366,15 @@
             // Render return flights
             if (searchParams.tripType === 'roundtrip') {
                 if (data.flights && data.flights.return && data.flights.return.flights && data.flights.return.flights.length > 0) {
-                    // Filter out flights with 0 price
-                    const validReturnFlights = data.flights.return.flights.filter(f => {
-                        const price = parseFloat(f.price);
-                        return !isNaN(price) && price > 0;
-                    });
-                    
-                    if (validReturnFlights.length > 0) {
-                        const returnFlights = validReturnFlights.map(f => ({
-                            ...f,
-                            fromCode: f.fromCode || toCode,
-                            toCode: f.toCode || fromCode
-                        }));
-                        returnContainer.innerHTML = returnFlights
-                            .map((f, i) => createFlightCard(f, 'return', i))
-                            .join('');
-} else {
-                    returnContainer.innerHTML = createNoFlightsMessage(data, 'return');
-                }
+                    // IMPORTANT: do NOT filter out flights with missing price.
+                    const returnFlights = data.flights.return.flights.map(f => ({
+                        ...f,
+                        fromCode: f.fromCode || toCode,
+                        toCode: f.toCode || fromCode
+                    }));
+                    returnContainer.innerHTML = returnFlights
+                        .map((f, i) => createFlightCard(f, 'return', i))
+                        .join('');
             } else {
                 returnContainer.innerHTML = createNoFlightsMessage(data, 'return');
             }
@@ -384,22 +391,7 @@
                 : '';
             
             // Check if there were flights that got filtered out
-            if (rawFlights && rawFlights.length > 0) {
-                const filteredOut = rawFlights.filter(f => {
-                    const price = parseFloat(f.price);
-                    return isNaN(price) || price <= 0;
-                });
-                if (filteredOut.length > 0) {
-                    return `
-                        <div class="no-flights debug">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <p>Fluturime u gjetën por çmimet nuk janë të vlefshme</p>
-                            <small>Found ${rawFlights.length} flights but prices were invalid (0 or missing)</small>
-                            ${debugInfo}
-                        </div>
-                    `;
-                }
-            }
+            // We no longer filter out flights with missing price, so this case isn't needed.
             
             return `
                 <div class="no-flights">
