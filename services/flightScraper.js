@@ -201,6 +201,8 @@ async function ensureOnHomepage(page, wasReused) {
         const url = page.url();
         if (url.includes('prishtinaticket.net') && !url.includes('/booking')) {
             log('♻️', 'Page already on homepage - reusing!');
+            // Cookie banner can appear later and block clicks; clear it even on reuse.
+            await dismissCookieBanner(page);
             isPageReady = true;
             return true; // Already on homepage
         }
@@ -449,7 +451,25 @@ async function searchFlights(searchParams, performanceLogger = null) {
         if (totalAdults > 1 || totalChildren > 0 || totalInfants > 0) {
             perf.startStep('set_passengers');
             try {
-                await page.click('lib-button button');
+                // Cookie banner can block the passengers button, especially on long-lived sessions.
+                await dismissCookieBanner(page);
+
+                // Playwright click() can wait up to ~30s by default if element isn't clickable.
+                // Use a shorter timeout + more targeted selector.
+                const passengersBtn = page.locator(
+                    'lib-button button:has-text("Adult"), lib-button button:has-text("adult"), button:has-text("Adult"), button:has-text("adult")'
+                ).first();
+
+                const clickedPassengers = await passengersBtn
+                    .click({ timeout: 5000 })
+                    .then(() => true)
+                    .catch(() => false);
+
+                if (!clickedPassengers) {
+                    // Fallback to previous behavior but with a short timeout
+                    await page.click('lib-button button', { timeout: 5000 });
+                }
+
                 await wait(WAIT_MEDIUM);
                 
                 const addP = async (idx, cnt) => {
