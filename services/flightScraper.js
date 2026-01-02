@@ -97,32 +97,52 @@ async function selectCityFromAutocomplete(page, inputLocator, cityText) {
     // Make sure overlays (cookies) don't block interaction
     await dismissCookieBanner(page);
 
-    // Focus input and set value
-    await inputLocator.click({ timeout: 5000 });
-    await inputLocator.fill(city);
-
-    // Autocomplete options can render in an overlay container; wait for a matching option.
-    const option = page
+    const escaped = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const optionLocator = page
         .locator(AUTOCOMPLETE_OPTION_SELECTOR)
-        .filter({ hasText: new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+        .filter({ hasText: new RegExp(escaped, 'i') })
         .first();
 
-    const optionVisible = await option.isVisible({ timeout: 5000 }).catch(() => false);
-    if (optionVisible) {
-        await option.click({ timeout: 5000 }).catch(() => {});
-    } else {
-        // Fallback: try keyboard selection (sometimes panel doesn't expose text immediately)
+    const warning = page.locator('text=Please select an item from the list').first();
+
+    // Try twice (production can be slower / autocomplete can be flaky)
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        // Focus input and set value
+        await inputLocator.click({ timeout: 5000 });
+        await inputLocator.fill(city);
+
+        // Try to open the autocomplete dropdown
         await inputLocator.press('ArrowDown').catch(() => {});
-        await inputLocator.press('Enter').catch(() => {});
+        await wait(100);
+
+        // Prefer clicking the matching option (prevents selecting the wrong "first option" like Basel)
+        const optionVisible = await optionLocator.isVisible({ timeout: 6000 }).catch(() => false);
+        if (optionVisible) {
+            await optionLocator.scrollIntoViewIfNeeded().catch(() => {});
+            await optionLocator.click({ timeout: 5000 }).catch(() => {});
+        } else {
+            // Fallback: keyboard select first entry (better than nothing)
+            await inputLocator.press('Enter').catch(() => {});
+        }
+
+        // Blur to force Angular validation/selection to apply
+        await inputLocator.press('Tab').catch(() => {});
+        await wait(150);
+
+        // Verify: input must now contain the city and no warning should be visible
+        const value = await inputLocator.inputValue().catch(() => '');
+        const warningVisible = await warning.isVisible({ timeout: 300 }).catch(() => false);
+        const ok = !warningVisible && value.toLowerCase().includes(city.toLowerCase());
+        if (ok) return true;
+
+        // Retry: clear + continue
+        await inputLocator.click({ timeout: 5000 }).catch(() => {});
+        await inputLocator.fill('').catch(() => {});
+        await dismissCookieBanner(page);
+        await wait(200);
     }
 
-    // Blur to force Angular validation/selection to apply
-    await inputLocator.press('Tab').catch(() => {});
-
-    // If the page shows the validation warning, selection didn't stick.
-    const warning = page.locator('text=Please select an item from the list').first();
-    const warningVisible = await warning.isVisible({ timeout: 500 }).catch(() => false);
-    return !warningVisible;
+    return false;
 }
 
 // Reset the idle timer - browser will close after 5 min of no searches
