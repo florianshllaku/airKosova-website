@@ -88,6 +88,41 @@ async function dismissCookieBanner(page) {
     }
 }
 
+async function selectCityFromAutocomplete(page, inputLocator, cityText) {
+    const city = String(cityText || '').trim();
+    if (!city) return false;
+
+    // Make sure overlays (cookies) don't block interaction
+    await dismissCookieBanner(page);
+
+    // Focus input and set value
+    await inputLocator.click({ timeout: 5000 });
+    await inputLocator.fill(city);
+
+    // Autocomplete options can render in an overlay container; wait for a matching option.
+    const option = page
+        .locator(AUTOCOMPLETE_OPTION_SELECTOR)
+        .filter({ hasText: new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+        .first();
+
+    const optionVisible = await option.isVisible({ timeout: 5000 }).catch(() => false);
+    if (optionVisible) {
+        await option.click({ timeout: 5000 }).catch(() => {});
+    } else {
+        // Fallback: try keyboard selection (sometimes panel doesn't expose text immediately)
+        await inputLocator.press('ArrowDown').catch(() => {});
+        await inputLocator.press('Enter').catch(() => {});
+    }
+
+    // Blur to force Angular validation/selection to apply
+    await inputLocator.press('Tab').catch(() => {});
+
+    // If the page shows the validation warning, selection didn't stick.
+    const warning = page.locator('text=Please select an item from the list').first();
+    const warningVisible = await warning.isVisible({ timeout: 500 }).catch(() => false);
+    return !warningVisible;
+}
+
 // Reset the idle timer - browser will close after 5 min of no searches
 function resetIdleTimer() {
     if (idleTimer) clearTimeout(idleTimer);
@@ -350,41 +385,19 @@ async function searchFlights(searchParams, performanceLogger = null) {
             await wait(WAIT_SHORT);
         }
         
-        // === DEPARTURE CITY ===
-        // Faster & more reliable with Playwright: fill() instead of typing per-char.
-        const fromCityLower = fromCity.toLowerCase();
+        // === CITIES (Departure + Destination) ===
         const inputs = page.locator('input[matinput], input[aria-autocomplete]');
-        if (await inputs.count() >= 1) {
-            const depInput = inputs.nth(0);
-            await depInput.click();
-            await depInput.fill(fromCityLower);
-            // Trigger key events to help the autocomplete panel open
-            await depInput.press('ArrowDown').catch(() => {});
-            // Prefer keyboard selection (less flaky than DOM text checks)
-            const opt = page.locator(AUTOCOMPLETE_OPTION_SELECTOR).first();
-            const hasOpt = await opt.isVisible({ timeout: 3000 }).catch(() => false);
-            if (hasOpt) {
-                await depInput.press('Enter');
-            } else {
-                // If dropdown didn't appear, just confirm the field
-                await depInput.press('Enter').catch(() => {});
-            }
-        }
-        
-        // === DESTINATION CITY ===
-        const toCityLower = toCity.toLowerCase();
         if (await inputs.count() >= 2) {
+            const depInput = inputs.nth(0);
             const destInput = inputs.nth(1);
-            await destInput.click();
-            await destInput.fill(toCityLower);
-            await destInput.press('ArrowDown').catch(() => {});
-            const opt = page.locator(AUTOCOMPLETE_OPTION_SELECTOR).first();
-            const hasOpt = await opt.isVisible({ timeout: 3000 }).catch(() => false);
-            if (hasOpt) {
-                await destInput.press('Enter');
-            } else {
-                await destInput.press('Enter').catch(() => {});
-            }
+
+            const depOk = await selectCityFromAutocomplete(page, depInput, fromCity);
+            if (!depOk) logAlways('⚠️', `Departure city did not select from dropdown: ${fromCity}`);
+
+            const destOk = await selectCityFromAutocomplete(page, destInput, toCity);
+            if (!destOk) logAlways('⚠️', `Destination city did not select from dropdown: ${toCity}`);
+        } else {
+            logAlways('⚠️', 'City inputs not found for autocomplete selection');
         }
         
         perf.endStep('form_filling');
