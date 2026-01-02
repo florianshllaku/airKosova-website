@@ -90,36 +90,49 @@ async function dismissCookieBanner(page) {
     }
 }
 
-async function selectCityFromAutocomplete(page, inputLocator, cityText) {
-    const city = String(cityText || '').trim();
-    if (!city) return false;
+async function selectCityFromAutocomplete(page, inputLocator, cityTextOrObj) {
+    const city = (typeof cityTextOrObj === 'string' ? cityTextOrObj : cityTextOrObj?.label) || '';
+    const code = (typeof cityTextOrObj === 'object' ? cityTextOrObj?.code : '') || '';
+    const cityStr = String(city).trim();
+    const codeStr = String(code).trim();
+    if (!cityStr && !codeStr) return false;
 
     // Make sure overlays (cookies) don't block interaction
     await dismissCookieBanner(page);
 
-    const escaped = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const optionLocator = page
-        .locator(AUTOCOMPLETE_OPTION_SELECTOR)
-        .filter({ hasText: new RegExp(escaped, 'i') })
-        .first();
-
     const warning = page.locator('text=Please select an item from the list').first();
 
     // Try twice (production can be slower / autocomplete can be flaky)
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
         // Focus input and set value
         await inputLocator.click({ timeout: 5000 });
-        await inputLocator.fill(city);
+        await inputLocator.fill(cityStr || codeStr);
 
         // Try to open the autocomplete dropdown
         await inputLocator.press('ArrowDown').catch(() => {});
         await wait(100);
 
-        // Prefer clicking the matching option (prevents selecting the wrong "first option" like Basel)
-        const optionVisible = await optionLocator.isVisible({ timeout: 6000 }).catch(() => false);
-        if (optionVisible) {
-            await optionLocator.scrollIntoViewIfNeeded().catch(() => {});
-            await optionLocator.click({ timeout: 5000 }).catch(() => {});
+        // Wait for options to appear (Angular Material overlay)
+        const options = page.locator(AUTOCOMPLETE_OPTION_SELECTOR);
+        const anyOptVisible = await options.first().isVisible({ timeout: 7000 }).catch(() => false);
+
+        if (anyOptVisible) {
+            // Choose the best matching option by text (prefer airport code match if available)
+            const count = Math.min(await options.count(), 20);
+            let bestIndex = 0;
+            let bestScore = -1;
+            for (let i = 0; i < count; i++) {
+                const txt = (await options.nth(i).innerText().catch(() => '')) || '';
+                const t = txt.toLowerCase();
+                let score = 0;
+                if (codeStr && t.includes(codeStr.toLowerCase())) score += 5;
+                if (cityStr && t.includes(cityStr.toLowerCase())) score += 3;
+                // Prefer exact start matches
+                if (cityStr && t.startsWith(cityStr.toLowerCase())) score += 1;
+                if (score > bestScore) { bestScore = score; bestIndex = i; }
+            }
+            await options.nth(bestIndex).scrollIntoViewIfNeeded().catch(() => {});
+            await options.nth(bestIndex).click({ timeout: 5000 }).catch(() => {});
         } else {
             // Fallback: keyboard select first entry (better than nothing)
             await inputLocator.press('Enter').catch(() => {});
@@ -132,7 +145,14 @@ async function selectCityFromAutocomplete(page, inputLocator, cityText) {
         // Verify: input must now contain the city and no warning should be visible
         const value = await inputLocator.inputValue().catch(() => '');
         const warningVisible = await warning.isVisible({ timeout: 300 }).catch(() => false);
-        const ok = !warningVisible && value.toLowerCase().includes(city.toLowerCase());
+        const v = String(value || '').toLowerCase();
+        const ok =
+            !warningVisible &&
+            (v.length > 0) &&
+            (
+                (cityStr && v.includes(cityStr.toLowerCase())) ||
+                (codeStr && v.includes(codeStr.toLowerCase()))
+            );
         if (ok) return true;
 
         // Retry: clear + continue
@@ -416,11 +436,17 @@ async function searchFlights(searchParams, performanceLogger = null) {
             const depInput = inputs.nth(0);
             const destInput = inputs.nth(1);
 
-            const depOk = await selectCityFromAutocomplete(page, depInput, fromCity);
+            const depOk = await selectCityFromAutocomplete(page, depInput, { label: fromCity, code: fromCode });
             if (!depOk) logAlways('⚠️', `Departure city did not select from dropdown: ${fromCity}`);
 
-            const destOk = await selectCityFromAutocomplete(page, destInput, toCity);
+            const destOk = await selectCityFromAutocomplete(page, destInput, { label: toCity, code: toCode });
             if (!destOk) logAlways('⚠️', `Destination city did not select from dropdown: ${toCity}`);
+
+            // If city selection fails, stop early and save debug instead of running a wrong search.
+            if (!depOk || !destOk) {
+                await saveDebugInfo(page, searchParams, 'City selection failed', { depOk, destOk, fromCity, toCity, fromCode, toCode });
+                throw new Error(`City selection failed (depOk=${depOk}, destOk=${destOk})`);
+            }
         } else {
             logAlways('⚠️', 'City inputs not found for autocomplete selection');
         }
