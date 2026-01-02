@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const PerformanceLogger = require('./performanceLogger');
@@ -32,6 +32,8 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 // Headless by default. Set DEBUG_BROWSER=true to see Chromium live.
 const DEBUG_MODE = process.env.DEBUG_BROWSER === 'true';
 const VERBOSE = process.env.VERBOSE_LOG === 'true' || !IS_PRODUCTION;
+// Optional: slow down Playwright actions when debugging (milliseconds). Example: SLOW_MO_MS=75
+const SLOW_MO_MS = parseInt(process.env.SLOW_MO_MS || '0', 10) || 0;
 
 // OPTIMIZED timings - safe reductions for speed
 const WAIT_TINY = 30;      // Minimal pause
@@ -41,12 +43,16 @@ const WAIT_LONG = 250;     // Complex actions
 const WAIT_PAGE = 300;     // After page load
 const TYPE_DELAY = 50;     // Typing speed - SLOW for accuracy (50ms per character)
 
+// Angular Material autocomplete options can appear as `mat-option` or `mat-mdc-option` depending on site version.
+const AUTOCOMPLETE_OPTION_SELECTOR = 'mat-option, mat-mdc-option, .mat-mdc-option, [role="option"]';
+
 // ============================================
 // BROWSER POOL - Keep browser alive between searches
 // ============================================
 const BROWSER_IDLE_TIMEOUT = 30 * 60 * 1000; // Close browser after 30 minutes of inactivity
 
 let browserInstance = null;
+let contextInstance = null;
 let pageInstance = null;
 let idleTimer = null;
 let isPageReady = false;
@@ -67,6 +73,19 @@ function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function dismissCookieBanner(page) {
+    try {
+        const btn = page.locator('button:has-text("Accept Cookies"), button:has-text("Accept cookies"), button:has-text("Accept")').first();
+        if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await btn.click({ timeout: 2000 }).catch(() => {});
+            await wait(150);
+            log('🍪', 'Accepted cookies banner');
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
 // Reset the idle timer - browser will close after 5 min of no searches
 function resetIdleTimer() {
     if (idleTimer) clearTimeout(idleTimer);
@@ -84,9 +103,14 @@ async function closeBrowser() {
     }
     if (browserInstance) {
         try {
+            if (contextInstance) {
+                try { await contextInstance.close(); } catch (e) {}
+                contextInstance = null;
+            }
             await browserInstance.close();
         } catch (e) {}
         browserInstance = null;
+        contextInstance = null;
         pageInstance = null;
         isPageReady = false;
         logAlways('🔒', 'Browser closed');
@@ -103,37 +127,30 @@ async function getBrowser() {
         } catch (e) {
             // Browser died, recreate
             browserInstance = null;
+            contextInstance = null;
             pageInstance = null;
             isPageReady = false;
         }
     }
     
     logAlways('🚀', 'Launching new browser instance...');
-    browserInstance = await puppeteer.launch({
-        headless: DEBUG_MODE ? false : 'new',
+    browserInstance = await chromium.launch({
+        headless: !DEBUG_MODE,
+        slowMo: DEBUG_MODE ? SLOW_MO_MS : 0,
         args: [
             '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
             '--disable-gpu', '--disable-extensions', '--disable-background-networking',
             '--disable-default-apps', '--disable-sync', '--mute-audio', '--no-first-run',
             '--window-size=1280,900'
         ],
-        defaultViewport: { width: 1280, height: 900 },
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        // Keep compatibility with existing env var if you set a custom Chromium path
+        executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || undefined
     });
 
-    // Reuse the default blank tab instead of opening a new one (prevents tab buildup)
-    try {
-        const pages = await browserInstance.pages();
-        if (pages && pages.length > 0) {
-            pageInstance = pages[0];
-            // Close any extra pages that may exist (shouldn't, but keeps things clean)
-            for (let i = 1; i < pages.length; i++) {
-                try { await pages[i].close(); } catch (e) {}
-            }
-        }
-    } catch (e) {
-        // ignore
-    }
+    // Create a reusable context (Playwright doesn't provide a default blank tab)
+    contextInstance = await browserInstance.newContext({
+        viewport: { width: 1280, height: 900 }
+    });
 
     return browserInstance;
 }
@@ -141,8 +158,7 @@ async function getBrowser() {
 // Get or create page instance (already on homepage)
 async function getPage(browser) {
     // Always prefer reusing the same page/tab if it's still alive.
-    // Even if `isPageReady` is false (e.g. logo click failed), we can navigate it back home.
-    if (pageInstance) {
+    if (pageInstance && !pageInstance.isClosed()) {
         try {
             await pageInstance.title();
             return { page: pageInstance, wasReused: true };
@@ -152,33 +168,26 @@ async function getPage(browser) {
         }
     }
 
-    // If we don't have a page yet, reuse the browser's first page if available.
-    try {
-        const pages = await browser.pages();
-        if (pages && pages.length > 0) {
-            pageInstance = pages[0];
-        }
-    } catch (e) {
-        // ignore
+    if (!contextInstance) {
+        // Shouldn't happen unless the browser was recreated mid-flight
+        contextInstance = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     }
 
-    if (!pageInstance) {
-        logAlways('📄', 'Creating new page...');
-        pageInstance = await browser.newPage();
-    }
+    logAlways('📄', 'Creating new page...');
+    pageInstance = await contextInstance.newPage();
 
     // Block heavy resources (set up only once per page)
-    if (!pageInstance.__akInterceptionSetup) {
-        await pageInstance.setRequestInterception(true);
-        pageInstance.on('request', req => {
+    if (!pageInstance.__akRouteSetup) {
+        await pageInstance.route('**/*', route => {
+            const req = route.request();
             const t = req.resourceType();
-            if (t === 'image' || t === 'font' || t === 'media' || req.url().includes('analytics') || req.url().includes('facebook')) {
-                req.abort();
-            } else {
-                req.continue();
+            const url = req.url();
+            if (t === 'image' || t === 'font' || t === 'media' || url.includes('analytics') || url.includes('facebook')) {
+                return route.abort();
             }
+            return route.continue();
         });
-        pageInstance.__akInterceptionSetup = true;
+        pageInstance.__akRouteSetup = true;
     }
 
     return { page: pageInstance, wasReused: false };
@@ -206,6 +215,9 @@ async function ensureOnHomepage(page, wasReused) {
     // Disable animations
     await page.addStyleTag({ content: '* { animation: none !important; transition: none !important; }' });
     await wait(WAIT_PAGE);
+
+    // Cookie banner can block clicks/autocomplete dropdowns
+    await dismissCookieBanner(page);
     
     isPageReady = true;
     return false; // Fresh navigation
@@ -335,72 +347,40 @@ async function searchFlights(searchParams, performanceLogger = null) {
         }
         
         // === DEPARTURE CITY ===
-        // Step 1: Click the input field
-        const depInput = await page.$('input[matinput], input[aria-autocomplete]');
-        if (depInput) {
+        // Faster & more reliable with Playwright: fill() instead of typing per-char.
+        const fromCityLower = fromCity.toLowerCase();
+        const inputs = page.locator('input[matinput], input[aria-autocomplete]');
+        if (await inputs.count() >= 1) {
+            const depInput = inputs.nth(0);
             await depInput.click();
-            await wait(100);
-            
-            // Step 2: Clear the field completely (Ctrl+A then Backspace)
-            await page.keyboard.down('Control');
-            await page.keyboard.press('a');
-            await page.keyboard.up('Control');
-            await page.keyboard.press('Backspace');
-            await wait(100);
-            
-            // Step 3: Type the city name SLOWLY in lowercase
-            const fromCityLower = fromCity.toLowerCase();
-            log('⌨️', `Typing departure: "${fromCityLower}"`);
-            await page.keyboard.type(fromCityLower, { delay: TYPE_DELAY });
-            
-            // Step 4: Wait for dropdown to appear and filter
-            await wait(400);
-            
-            // Step 5: Click the first dropdown option
-            await page.evaluate(() => {
-                const option = document.querySelector('mat-option, [role="option"]');
-                if (option) {
-                    option.click();
-                    return true;
-                }
-                return false;
-            });
-            await wait(300);
+            await depInput.fill(fromCityLower);
+            // Trigger key events to help the autocomplete panel open
+            await depInput.press('ArrowDown').catch(() => {});
+            // Prefer keyboard selection (less flaky than DOM text checks)
+            const opt = page.locator(AUTOCOMPLETE_OPTION_SELECTOR).first();
+            const hasOpt = await opt.isVisible({ timeout: 3000 }).catch(() => false);
+            if (hasOpt) {
+                await depInput.press('Enter');
+            } else {
+                // If dropdown didn't appear, just confirm the field
+                await depInput.press('Enter').catch(() => {});
+            }
         }
         
         // === DESTINATION CITY ===
-        // Step 1: Click the second input field
-        const destInputs = await page.$$('input[matinput], input[aria-autocomplete]');
-        const destInput = destInputs[1];
-        if (destInput) {
+        const toCityLower = toCity.toLowerCase();
+        if (await inputs.count() >= 2) {
+            const destInput = inputs.nth(1);
             await destInput.click();
-            await wait(100);
-            
-            // Step 2: Clear the field completely (Ctrl+A then Backspace)
-            await page.keyboard.down('Control');
-            await page.keyboard.press('a');
-            await page.keyboard.up('Control');
-            await page.keyboard.press('Backspace');
-            await wait(100);
-            
-            // Step 3: Type the city name SLOWLY in lowercase
-            const toCityLower = toCity.toLowerCase();
-            log('⌨️', `Typing destination: "${toCityLower}"`);
-            await page.keyboard.type(toCityLower, { delay: TYPE_DELAY });
-            
-            // Step 4: Wait for dropdown to appear and filter
-            await wait(400);
-            
-            // Step 5: Click the first dropdown option
-            await page.evaluate(() => {
-                const option = document.querySelector('mat-option, [role="option"]');
-                if (option) {
-                    option.click();
-                    return true;
-                }
-                return false;
-            });
-            await wait(300);
+            await destInput.fill(toCityLower);
+            await destInput.press('ArrowDown').catch(() => {});
+            const opt = page.locator(AUTOCOMPLETE_OPTION_SELECTOR).first();
+            const hasOpt = await opt.isVisible({ timeout: 3000 }).catch(() => false);
+            if (hasOpt) {
+                await destInput.press('Enter');
+            } else {
+                await destInput.press('Enter').catch(() => {});
+            }
         }
         
         perf.endStep('form_filling');
@@ -519,7 +499,7 @@ async function searchFlights(searchParams, performanceLogger = null) {
                     const hasTimes = (txt.match(/\b\d{2}:\d{2}\b/g) || []).length >= 2;
                     const hasPrice = /€\s*\d|CHF\s*\d|\d\s*€|\d\s*CHF/i.test(txt);
                     return hasTimes && hasPrice;
-                }, { timeout: 6000 });
+                }, undefined, { timeout: 6000 });
             } catch (e) {
                 // If it never stabilizes, we still try extraction (better than failing)
             }
@@ -536,7 +516,7 @@ async function searchFlights(searchParams, performanceLogger = null) {
         // STEP 7: Extract (target: <50ms)
         perf.startStep('extract_data');
         
-        const flightData = await page.evaluate((fromCode, toCode) => {
+        const flightData = await page.evaluate(({ fromCode, toCode }) => {
             const results = {
                 outbound: { route: { fromCode, toCode }, flights: [] },
                 return: { route: { fromCode: toCode, toCode: fromCode }, flights: [] }
@@ -689,7 +669,7 @@ async function searchFlights(searchParams, performanceLogger = null) {
             }
             
             return results;
-        }, fromCode, toCode);
+        }, { fromCode, toCode });
         
         perf.endStep('extract_data');
         
