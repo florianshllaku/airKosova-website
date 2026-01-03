@@ -507,6 +507,7 @@
             const apiTime = frontendTiming.apiCallEnd - frontendTiming.apiCallStart;
             const renderTime = frontendTiming.renderEnd - frontendTiming.renderStart;
             const totalFrontendTime = frontendTiming.renderEnd - frontendTiming.pageLoadStart;
+            const totalUserPerceivedMs = apiTime + renderTime;
             
             // Create timing panel
             const timingPanel = document.createElement('div');
@@ -519,7 +520,7 @@
                     </button>
                 </div>
                 <div class="timing-summary">
-                    <span class="timing-total">Total: <strong>${formatTime(backendTiming?.totalTimeMs || apiTime)}</strong></span>
+                    <span class="timing-total">Total: <strong>${formatTime(totalUserPerceivedMs)}</strong></span>
                     <span class="timing-id">ID: ${backendTiming?.searchId || 'N/A'}</span>
                 </div>
                 <div class="timing-details" id="timingDetails" style="display: none;">
@@ -565,8 +566,8 @@
                             <span>${formatTime(renderTime)}</span>
                         </div>
                         <div class="timing-row highlight">
-                            <span>Total Frontend</span>
-                            <span>${formatTime(totalFrontendTime)}</span>
+                            <span>Total (API + Render)</span>
+                            <span>${formatTime(totalUserPerceivedMs)}</span>
                         </div>
                     </div>
                 </div>
@@ -596,9 +597,9 @@
             });
         }
         
+        // Always show seconds (ms is hard to read and makes totals look "wrong")
         function formatTime(ms) {
             if (ms === undefined || ms === null) return '—';
-            if (ms < 1000) return `${Math.round(ms)}ms`;
             return `${(ms / 1000).toFixed(2)}s`;
         }
         

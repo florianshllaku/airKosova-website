@@ -126,7 +126,17 @@ async function setupPageRouting(page) {
 
 async function dismissCookieBanner(page) {
     try {
-        const btn = page.locator('button:has-text("Accept Cookies"), button:has-text("Accept cookies"), button:has-text("Accept")').first();
+        const btn = page.locator(
+            [
+                'button:has-text("Accept Cookies")',
+                'button:has-text("Accept cookies")',
+                'button:has-text("Accept")',
+                'button:has-text("Accept all")',
+                'button:has-text("Alle akzeptieren")',
+                'button:has-text("Akzeptieren")',
+                'button:has-text("Zulassen")'
+            ].join(', ')
+        ).first();
         if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
             await btn.click({ timeout: 2000 }).catch(() => {});
             await wait(150);
@@ -219,8 +229,18 @@ async function ensureOnHomepage(page) {
         timeout: NAV_TIMEOUT_MS
     });
 
-    // Disable animations
-    await page.addStyleTag({ content: '* { animation: none !important; transition: none !important; }' });
+    // Some environments redirect (e.g. / -> /en) or do SPA navigations after domcontentloaded.
+    // Disabling animations is a nice-to-have; never let it fail the job.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            await page.addStyleTag({ content: '* { animation: none !important; transition: none !important; }' });
+            break;
+        } catch (e) {
+            // If a navigation just happened, retry once after domcontentloaded again.
+            await page.waitForLoadState('domcontentloaded', { timeout: NAV_TIMEOUT_MS }).catch(() => {});
+            await wait(100);
+        }
+    }
     await wait(WAIT_PAGE);
 
     // Cookie banner can block clicks/autocomplete dropdowns
@@ -369,16 +389,22 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
             // Production can be slower; use a longer wait + a couple of safe fallbacks.
             const candidates =
                 tripType === 'oneway'
-                    ? ['lib-datepicker button', 'lib-datepicker', 'button[aria-label*="calendar"]']
+                    ? ['lib-datepicker button', 'lib-datepicker', 'input[placeholder*="Date"]', 'button[aria-label*="calendar"]', 'button[aria-label*="Calendar"]']
                     : ['lib-range-datepicker button', 'lib-range-datepicker', 'lib-datepicker button', 'lib-datepicker', 'button[aria-label*="calendar"]'];
 
             const calendarSel = '.mat-calendar, .mat-datepicker-content, .mat-mdc-datepicker-content, mat-calendar';
 
             const tryOpen = async () => {
+                // Ensure the component is present (slow SPA hydration in production)
+                await page.waitForSelector(tripType === 'oneway' ? 'lib-datepicker' : 'lib-range-datepicker', {
+                    timeout: UI_TIMEOUT_MS
+                }).catch(() => {});
+
                 for (const sel of candidates) {
                     const loc = page.locator(sel).first();
                     const visible = await loc.isVisible({ timeout: UI_TIMEOUT_MS }).catch(() => false);
                     if (!visible) continue;
+                    await loc.scrollIntoViewIfNeeded().catch(() => {});
                     await loc.click({ timeout: UI_TIMEOUT_MS }).catch(() => {});
 
                     const calendarVisible = await page
@@ -794,6 +820,20 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
         
         perf.printSummary();
         
+            const timingSummary = {
+                searchId: perf.searchId,
+                totalTimeMs: perf.getTotalTime(),
+                breakdown: {
+                    pageNavigation: perf.getStepDuration('page_navigation'),
+                    formFilling: perf.getStepDuration('form_filling'),
+                    selectDates: perf.getStepDuration('select_dates'),
+                    setPassengers: perf.getStepDuration('set_passengers'),
+                    clickSearch: perf.getStepDuration('click_search'),
+                    waitForResults: perf.getStepDuration('wait_for_results'),
+                    dataExtraction: perf.getStepDuration('extract_flight_data')
+                }
+            };
+
             return {
                 success: true,
                 url: page.url(),
@@ -803,7 +843,7 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
                     return: { route: extracted.return?.route, flights: extracted.return?.flights || [] },
                     currency: 'EUR'
                 },
-                performanceLogger: perf,
+                timing: timingSummary,
                 browserReused: true
             };
             
@@ -811,7 +851,15 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
             logAlways('❌', 'Error: ' + error.message);
             if (page) await saveDebugInfo(page, searchParams, error.message);
             
-            return { success: false, error: error.message, flights: { outbound: { flights: [] }, return: { flights: [] } }, performanceLogger: perf };
+            return {
+                success: false,
+                error: error.message,
+                flights: { outbound: { flights: [] }, return: { flights: [] } },
+                timing: {
+                    searchId: perf.searchId,
+                    totalTimeMs: perf.getTotalTime()
+                }
+            };
         }
 }
 
