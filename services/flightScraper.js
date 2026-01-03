@@ -48,10 +48,11 @@ const WAIT_LONG = 250;     // Complex actions
 const WAIT_PAGE = 300;     // After page load
 const TYPE_DELAY = 50;     // Typing speed - SLOW for accuracy (50ms per character)
 
-// Production can be slower; allow tuning UI waits without changing code.
+// UI can be much slower in production; default to a conservative value unless you override it.
+// If you are seeing `timeout=6000ms` in prod logs, set `UI_TIMEOUT_MS=20000` (or higher) in env.
 const UI_TIMEOUT_MS = Math.max(
     3000,
-    parseInt(process.env.UI_TIMEOUT_MS || (IS_PRODUCTION ? '15000' : '6000'), 10) || (IS_PRODUCTION ? 15000 : 6000)
+    parseInt(process.env.UI_TIMEOUT_MS || (IS_PRODUCTION ? '20000' : '6000'), 10) || (IS_PRODUCTION ? 20000 : 6000)
 );
 
 // Angular Material autocomplete options can appear as `mat-option` or `mat-mdc-option` depending on site version.

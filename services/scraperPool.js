@@ -95,6 +95,9 @@ class ScraperPool {
 
       this._initialized = true;
       console.log(`🧰 ScraperPool ready: ${BROWSER_COUNT} browsers, ${this.workers.length} workers, homepage=${HOMEPAGE_URL}`);
+
+      // If any jobs arrived while we were booting, start them now.
+      this._tryStartNext();
     })().catch(err => {
       // Allow retrying init if it fails
       this._initPromise = null;
@@ -110,6 +113,12 @@ class ScraperPool {
    * Always returns jobId immediately.
    */
   submitJob(input) {
+    // If the first request arrives before startup init finishes, kick init now.
+    // The job will be queued and processed automatically once init completes.
+    if (!this._initialized && !this._initPromise) {
+      this.init().catch(() => {});
+    }
+
     const jobId = makeJobId();
     const now = Date.now();
     this.jobs.set(jobId, {
