@@ -312,6 +312,39 @@ async function saveDebugInfo(page, searchParams, reason, extra = null) {
 }
 
 /**
+ * Fast check: if worker is already on homepage and the form inputs exist, don't re-navigate.
+ * Falls back to `ensureOnHomepage()` only when needed.
+ */
+async function ensureReadyForSearch(page) {
+    try {
+        const url = page.url() || '';
+        const onHome = url.includes('prishtinaticket.net') && !url.includes('/booking');
+        if (!onHome) {
+            await ensureOnHomepage(page);
+            return { navigated: true };
+        }
+
+        const inputsVisible = await page
+            .locator('input[aria-autocomplete], input[matinput]')
+            .first()
+            .isVisible({ timeout: 1500 })
+            .catch(() => false);
+
+        if (!inputsVisible) {
+            await ensureOnHomepage(page);
+            return { navigated: true };
+        }
+
+        // Still clear possible overlays
+        await dismissCookieBanner(page);
+        return { navigated: false };
+    } catch (e) {
+        await ensureOnHomepage(page);
+        return { navigated: true };
+    }
+}
+
+/**
  * Core automation: runs a flight search using the provided Playwright page.
  * Browser/page lifecycle is managed by the worker pool.
  */
@@ -336,11 +369,11 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
         logAlways('🔍', `Search: ${fromCode}→${toCode} | ${depDate.toLocaleDateString()}${retDate ? ' → ' + retDate.toLocaleDateString() : ''}`);
 
         try {
-            // STEP 1: Navigate to homepage (workers are reset to homepage after each job, but we hard-navigate to be safe)
+            // STEP 1: Ensure we're ready (avoid double-navigating; pool already resets after each job)
             perf.startStep('page_navigation');
-            await ensureOnHomepage(page);
+            const nav = await ensureReadyForSearch(page);
             perf.endStep('page_navigation');
-            log('✅', `Navigate: ${perf.getStepDuration('page_navigation')}ms`);
+            log(nav.navigated ? '✅' : '⚡', `${nav.navigated ? 'Navigate' : 'Navigate (skipped)'}: ${perf.getStepDuration('page_navigation')}ms`);
 
             // STEP 2: Form filling (UI)
         perf.startStep('form_filling');
@@ -351,7 +384,8 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
                 const l = [...document.querySelectorAll('label')].find(x => x.textContent.toLowerCase().includes('one way'));
                 if (l) l.click();
             });
-            await wait(WAIT_SHORT);
+            // Wait for return date UI to hide (more reliable and often faster than a fixed sleep)
+            await page.waitForTimeout(50);
         }
         
         // === CITIES (Departure + Destination) ===
@@ -438,7 +472,8 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
                 throw new Error(`Date picker not available (timeout=${UI_TIMEOUT_MS}ms, selector=${datePickerBtn})`);
             }
 
-            await wait(WAIT_MEDIUM);
+            // Calendar is visible; a tiny pause is enough for click targets to become stable.
+            await page.waitForTimeout(50);
             
             // Fast month navigation
             const navToMonth = async (tMonth, tYear) => {
@@ -467,7 +502,7 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
                     if (t && t.textContent.trim() === d.toString()) { c.click(); break; }
                 }
             }, depDate.getDate());
-            await wait(WAIT_SHORT);
+            await page.waitForTimeout(50);
             
             if (tripType !== 'oneway' && retDate) {
                 await navToMonth(retDate.getMonth(), retDate.getFullYear());
@@ -478,7 +513,7 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
                         if (t && t.textContent.trim() === d.toString()) { c.click(); break; }
                     }
                 }, retDate.getDate());
-                await wait(WAIT_SHORT);
+                await page.waitForTimeout(50);
             }
             
             await page.keyboard.press('Escape');
@@ -513,7 +548,8 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
                     await page.click('lib-button button', { timeout: 5000 });
                 }
 
-                await wait(WAIT_MEDIUM);
+            // Let passenger overlay open
+            await page.waitForTimeout(75);
                 
                 const addP = async (idx, cnt) => {
                     for (let i = 0; i < cnt; i++) {
