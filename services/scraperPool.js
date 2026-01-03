@@ -65,7 +65,9 @@ class ScraperPool {
             browserIndex,
             context,
             page,
-            busy: false
+            busy: false,
+            currentJobId: null,
+            lastJobId: null
           });
         }
       }
@@ -107,6 +109,51 @@ class ScraperPool {
     return jobId;
   }
 
+  getStatus() {
+    const total = this.workers.length;
+    const busy = this.workers.filter(w => w.busy).length;
+    const counts = { queued: 0, running: 0, done: 0, failed: 0 };
+    for (const j of this.jobs.values()) {
+      if (counts[j.status] !== undefined) counts[j.status]++;
+    }
+
+    const oldestQueued = this.queue.length > 0 ? this.jobs.get(this.queue[0]) : null;
+    const oldestQueuedAgeMs = oldestQueued ? (Date.now() - oldestQueued.createdAt) : 0;
+
+    return {
+      browsers: this.browsers.length,
+      workersTotal: total,
+      workersBusy: busy,
+      workersFree: total - busy,
+      queueLength: this.queue.length,
+      jobs: counts,
+      oldestQueuedAgeMs,
+      workers: this.workers.map(w => ({
+        id: w.id,
+        browserIndex: w.browserIndex,
+        busy: w.busy,
+        currentJobId: w.currentJobId,
+        lastJobId: w.lastJobId
+      }))
+    };
+  }
+
+  listJobs(limit = 50) {
+    const items = Array.from(this.jobs.values())
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, limit)
+      .map(j => ({
+        jobId: j.jobId,
+        status: j.status,
+        createdAt: j.createdAt,
+        startedAt: j.startedAt,
+        finishedAt: j.finishedAt,
+        workerId: j.workerId,
+        error: j.status === 'failed' ? j.error : undefined
+      }));
+    return { total: this.jobs.size, items };
+  }
+
   getJob(jobId) {
     return this.jobs.get(jobId) || null;
   }
@@ -132,6 +179,7 @@ class ScraperPool {
       } catch (_) {}
     } finally {
       worker.busy = false;
+      worker.currentJobId = null;
       this._tryStartNext();
     }
   }
@@ -165,6 +213,8 @@ class ScraperPool {
     job.status = 'running';
     job.startedAt = Date.now();
     job.workerId = worker.id;
+    worker.currentJobId = jobId;
+    worker.lastJobId = jobId;
 
     const perf = new PerformanceLogger();
     perf.setSearchParams(job.input);

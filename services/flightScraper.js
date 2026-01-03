@@ -46,6 +46,12 @@ const WAIT_LONG = 250;     // Complex actions
 const WAIT_PAGE = 300;     // After page load
 const TYPE_DELAY = 50;     // Typing speed - SLOW for accuracy (50ms per character)
 
+// Production can be slower; allow tuning UI waits without changing code.
+const UI_TIMEOUT_MS = Math.max(
+    3000,
+    parseInt(process.env.UI_TIMEOUT_MS || (IS_PRODUCTION ? '12000' : '6000'), 10) || 6000
+);
+
 // Angular Material autocomplete options can appear as `mat-option` or `mat-mdc-option` depending on site version.
 const AUTOCOMPLETE_OPTION_SELECTOR = 'mat-option, mat-mdc-option, .mat-mdc-option, [role="option"]';
 
@@ -349,8 +355,37 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
         const datePickerBtn = tripType === 'oneway' ? 'lib-datepicker button' : 'lib-range-datepicker button';
         
         try {
-            await page.waitForSelector(datePickerBtn, { timeout: 3000 });
-            await page.click(datePickerBtn);
+            await dismissCookieBanner(page);
+
+            // Production can be slower; use a longer wait + a couple of safe fallbacks.
+            const candidates =
+                tripType === 'oneway'
+                    ? ['lib-datepicker button', 'lib-datepicker', 'button[aria-label*="calendar"]']
+                    : ['lib-range-datepicker button', 'lib-range-datepicker', 'lib-datepicker button', 'lib-datepicker', 'button[aria-label*="calendar"]'];
+
+            let opened = false;
+            for (const sel of candidates) {
+                const loc = page.locator(sel).first();
+                const visible = await loc.isVisible({ timeout: UI_TIMEOUT_MS }).catch(() => false);
+                if (!visible) continue;
+                await loc.click({ timeout: UI_TIMEOUT_MS }).catch(() => {});
+                opened = true;
+                break;
+            }
+
+            // Ensure calendar is actually present (not just clicked)
+            const calendarVisible = await page
+                .locator('.mat-calendar, .mat-datepicker-content, .mat-mdc-datepicker-content, mat-calendar')
+                .first()
+                .isVisible({ timeout: UI_TIMEOUT_MS })
+                .catch(() => false);
+
+            if (!opened || !calendarVisible) {
+                // Fail fast rather than silently running with wrong/default dates.
+                await saveDebugInfo(page, searchParams, 'Date picker open failed', { candidates, tripType, url: page.url() }).catch(() => {});
+                throw new Error(`Date picker not available (timeout=${UI_TIMEOUT_MS}ms, selector=${datePickerBtn})`);
+            }
+
             await wait(WAIT_MEDIUM);
             
             // Fast month navigation
@@ -397,6 +432,7 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
             await page.keyboard.press('Escape');
         } catch (e) {
             log('⚠️', 'Date error: ' + e.message);
+            throw e;
         }
         
         perf.endStep('select_dates');

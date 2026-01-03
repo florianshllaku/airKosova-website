@@ -280,6 +280,26 @@ app.get('/api/jobs/:jobId', (req, res) => {
     res.json(payload);
 });
 
+// Pool / jobs diagnostics (protect in production with ADMIN_TOKEN)
+app.get('/api/admin/pool', (req, res) => {
+    const token = req.query.token;
+    const required = process.env.ADMIN_TOKEN;
+    if (process.env.NODE_ENV === 'production' && required && token !== required) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    res.json({ success: true, status: pool.getStatus() });
+});
+
+app.get('/api/admin/jobs', (req, res) => {
+    const token = req.query.token;
+    const required = process.env.ADMIN_TOKEN;
+    if (process.env.NODE_ENV === 'production' && required && token !== required) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '50', 10) || 50));
+    res.json({ success: true, jobs: pool.listJobs(limit) });
+});
+
 // ========================================
 // AUTH API ENDPOINTS
 // ========================================
