@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "loadtest:30rpm": "node scripts/loadTestJobs.js --baseUrl=http://localhost:3000 --rpm=30 --minutes=1"
   },
   "keywords": [
     "flights",
