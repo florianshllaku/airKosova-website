@@ -27,7 +27,9 @@ const cityNames = {
 // ============================================
 // OPTIMIZED SPEED SETTINGS
 // ============================================
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+// Treat "production" as the default unless explicitly set to development.
+// This avoids accidentally using fast dev timeouts on VPS/PM2 where NODE_ENV is often unset.
+const IS_PRODUCTION = process.env.NODE_ENV !== 'development';
 // Headless by default. Set DEBUG_BROWSER=true to see Chromium live.
 const DEBUG_MODE = process.env.DEBUG_BROWSER === 'true';
 const VERBOSE = process.env.VERBOSE_LOG === 'true' || !IS_PRODUCTION;
@@ -49,7 +51,7 @@ const TYPE_DELAY = 50;     // Typing speed - SLOW for accuracy (50ms per charact
 // Production can be slower; allow tuning UI waits without changing code.
 const UI_TIMEOUT_MS = Math.max(
     3000,
-    parseInt(process.env.UI_TIMEOUT_MS || (IS_PRODUCTION ? '12000' : '6000'), 10) || 6000
+    parseInt(process.env.UI_TIMEOUT_MS || (IS_PRODUCTION ? '15000' : '6000'), 10) || (IS_PRODUCTION ? 15000 : 6000)
 );
 
 // Angular Material autocomplete options can appear as `mat-option` or `mat-mdc-option` depending on site version.
@@ -363,26 +365,43 @@ async function runSearchAutomation(page, searchParams, performanceLogger = null)
                     ? ['lib-datepicker button', 'lib-datepicker', 'button[aria-label*="calendar"]']
                     : ['lib-range-datepicker button', 'lib-range-datepicker', 'lib-datepicker button', 'lib-datepicker', 'button[aria-label*="calendar"]'];
 
-            let opened = false;
-            for (const sel of candidates) {
-                const loc = page.locator(sel).first();
-                const visible = await loc.isVisible({ timeout: UI_TIMEOUT_MS }).catch(() => false);
-                if (!visible) continue;
-                await loc.click({ timeout: UI_TIMEOUT_MS }).catch(() => {});
-                opened = true;
-                break;
+            const calendarSel = '.mat-calendar, .mat-datepicker-content, .mat-mdc-datepicker-content, mat-calendar';
+
+            const tryOpen = async () => {
+                for (const sel of candidates) {
+                    const loc = page.locator(sel).first();
+                    const visible = await loc.isVisible({ timeout: UI_TIMEOUT_MS }).catch(() => false);
+                    if (!visible) continue;
+                    await loc.click({ timeout: UI_TIMEOUT_MS }).catch(() => {});
+
+                    const calendarVisible = await page
+                        .locator(calendarSel)
+                        .first()
+                        .isVisible({ timeout: UI_TIMEOUT_MS })
+                        .catch(() => false);
+                    if (calendarVisible) return true;
+                }
+                return false;
+            };
+
+            // Attempt #1
+            let opened = await tryOpen();
+
+            // Attempt #2 (common in slow prod): wait a bit and try again
+            if (!opened) {
+                await wait(500);
+                await dismissCookieBanner(page);
+                opened = await tryOpen();
             }
 
-            // Ensure calendar is actually present (not just clicked)
-            const calendarVisible = await page
-                .locator('.mat-calendar, .mat-datepicker-content, .mat-mdc-datepicker-content, mat-calendar')
-                .first()
-                .isVisible({ timeout: UI_TIMEOUT_MS })
-                .catch(() => false);
-
-            if (!opened || !calendarVisible) {
+            if (!opened) {
                 // Fail fast rather than silently running with wrong/default dates.
-                await saveDebugInfo(page, searchParams, 'Date picker open failed', { candidates, tripType, url: page.url() }).catch(() => {});
+                await saveDebugInfo(page, searchParams, 'Date picker open failed', {
+                    candidates,
+                    tripType,
+                    url: page.url(),
+                    timeoutMs: UI_TIMEOUT_MS
+                }).catch(() => {});
                 throw new Error(`Date picker not available (timeout=${UI_TIMEOUT_MS}ms, selector=${datePickerBtn})`);
             }
 
