@@ -11,11 +11,18 @@ const { getTranslations } = require('./config/translations');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Playwright pool at startup (2 browsers, 8 persistent workers)
-pool.init().catch(e => {
-    console.error('❌ Failed to initialize Playwright pool:', e.message);
-    process.exit(1);
-});
+// Initialize Playwright pool at startup (persistent browsers + worker pages).
+// In production the target site can be slow/unreachable transiently; don't kill the process on init failure.
+const startPool = async () => {
+    try {
+        await pool.init();
+    } catch (e) {
+        console.error('❌ Failed to initialize Playwright pool:', e.message);
+        // Retry in the background
+        setTimeout(startPool, 15000);
+    }
+};
+startPool();
 
 // Middleware
 app.use(express.json());

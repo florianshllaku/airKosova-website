@@ -65,6 +65,12 @@ const BLOCK_TRACKERS = process.env.BLOCK_TRACKERS !== 'false';
 // Homepage for resetting workers after each job
 const HOMEPAGE_URL = process.env.PRISHTINATICKET_HOME || 'https://prishtinaticket.net/';
 
+// Production VPS + target site can be slow; keep navigation timeout configurable.
+const NAV_TIMEOUT_MS = Math.max(
+    15000,
+    parseInt(process.env.NAV_TIMEOUT_MS || (IS_PRODUCTION ? '45000' : '20000'), 10) || (IS_PRODUCTION ? 45000 : 20000)
+);
+
 function log(emoji, message) {
     if (VERBOSE) {
         const timestamp = new Date().toLocaleTimeString();
@@ -209,7 +215,7 @@ async function selectCityFromAutocomplete(page, inputLocator, cityTextOrObj) {
 async function ensureOnHomepage(page) {
     await page.goto(HOMEPAGE_URL, {
         waitUntil: 'domcontentloaded',
-        timeout: 20000
+        timeout: NAV_TIMEOUT_MS
     });
 
     // Disable animations
@@ -220,7 +226,7 @@ async function ensureOnHomepage(page) {
     await dismissCookieBanner(page);
 
     // Extra readiness check
-    await page.waitForSelector('input[aria-autocomplete], input[matinput]', { timeout: 8000 }).catch(() => {});
+    await page.waitForSelector('input[aria-autocomplete], input[matinput]', { timeout: Math.min(15000, NAV_TIMEOUT_MS) }).catch(() => {});
 }
 
 // Click logo to return to homepage after extraction
@@ -815,6 +821,7 @@ module.exports = {
     ensureOnHomepage,
     returnToHomepage,
     HOMEPAGE_URL,
+    NAV_TIMEOUT_MS,
     airportCodes,
     PerformanceLogger
 };

@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { runSearchAutomation, setupPageRouting, ensureOnHomepage, HOMEPAGE_URL, PerformanceLogger } = require('./flightScraper');
+const { runSearchAutomation, setupPageRouting, ensureOnHomepage, HOMEPAGE_URL, NAV_TIMEOUT_MS, PerformanceLogger } = require('./flightScraper');
 
 const DEBUG_MODE = process.env.DEBUG_BROWSER === 'true';
 const SLOW_MO_MS = parseInt(process.env.SLOW_MO_MS || '0', 10) || 0;
@@ -9,6 +9,8 @@ const BROWSER_COUNT = 3;
 const WORKERS_PER_BROWSER = 10;
 const WORKERS_TOTAL = BROWSER_COUNT * WORKERS_PER_BROWSER;
 const JOB_TIMEOUT_MS = Math.max(5000, parseInt(process.env.JOB_TIMEOUT_MS || '30000', 10) || 30000);
+const POOL_INIT_RETRIES = Math.max(0, parseInt(process.env.POOL_INIT_RETRIES || '3', 10) || 3);
+const POOL_WARM_ON_STARTUP = process.env.POOL_WARM_ON_STARTUP !== 'false';
 
 function delay(ms) {
   return new Promise(r => setTimeout(r, ms));
@@ -56,9 +58,28 @@ class ScraperPool {
         for (let j = 0; j < WORKERS_PER_BROWSER; j++) {
           const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
           const page = await context.newPage();
+          page.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
 
           await setupPageRouting(page);
-          await ensureOnHomepage(page);
+          if (POOL_WARM_ON_STARTUP) {
+            let warmed = false;
+            let lastErr = null;
+            for (let attempt = 1; attempt <= POOL_INIT_RETRIES + 1; attempt++) {
+              try {
+                await ensureOnHomepage(page);
+                warmed = true;
+                break;
+              } catch (e) {
+                lastErr = e;
+                // Backoff a bit; target site or network can be slow at boot.
+                await delay(1000 * attempt);
+              }
+            }
+            if (!warmed) {
+              console.log(`⚠️ Worker warm-up failed (worker=${workerId}, browser=${browserIndex}): ${lastErr?.message || lastErr}`);
+              // Keep the page open anyway; first job will navigate again.
+            }
+          }
 
           this.workers.push({
             id: workerId++,
@@ -74,7 +95,12 @@ class ScraperPool {
 
       this._initialized = true;
       console.log(`🧰 ScraperPool ready: ${BROWSER_COUNT} browsers, ${this.workers.length} workers, homepage=${HOMEPAGE_URL}`);
-    })();
+    })().catch(err => {
+      // Allow retrying init if it fails
+      this._initPromise = null;
+      this._initialized = false;
+      throw err;
+    });
 
     return this._initPromise;
   }
@@ -169,13 +195,13 @@ class ScraperPool {
     // NEW behavior: always keep page open, but reset it back to homepage after a 2s delay
     try {
       await delay(2000);
-      await worker.page.goto(HOMEPAGE_URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await worker.page.goto(HOMEPAGE_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
       // Optional readiness: ensure main search inputs exist
-      await worker.page.waitForSelector('input[aria-autocomplete], input[matinput]', { timeout: 8000 }).catch(() => {});
+      await worker.page.waitForSelector('input[aria-autocomplete], input[matinput]', { timeout: Math.min(15000, NAV_TIMEOUT_MS) }).catch(() => {});
     } catch (e) {
       // If reset fails, try a full reload once; worst case we leave it as-is and next job will navigate.
       try {
-        await worker.page.goto(HOMEPAGE_URL, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+        await worker.page.goto(HOMEPAGE_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS }).catch(() => {});
       } catch (_) {}
     } finally {
       worker.busy = false;
