@@ -71,6 +71,12 @@ function toCsv(rows) {
     'adults',
     'children',
     'infants',
+    'resultUrl',
+    'currency',
+    'outboundCount',
+    'returnCount',
+    'outboundCheapest',
+    'returnCheapest',
     'requestSentAt',
     'jobCreatedAt',
     'jobStartedAt',
@@ -226,6 +232,46 @@ async function pollJob(baseUrl, jobId, { pollMinMs, pollMaxMs, pollTimeoutMs, ht
   }
 }
 
+function extractPriceNumber(v) {
+  if (v === null || v === undefined) return null;
+  const n = Number(String(v).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function summarizePrices(result, sampleSize = 5) {
+  const outbound = result?.flights?.outbound?.flights || [];
+  const ret = result?.flights?.return?.flights || [];
+  const currency = result?.flights?.currency || outbound.find(f => f?.currency)?.currency || ret.find(f => f?.currency)?.currency || '';
+
+  const outPrices = outbound.map(f => extractPriceNumber(f?.price)).filter(n => n !== null && n > 0);
+  const retPrices = ret.map(f => extractPriceNumber(f?.price)).filter(n => n !== null && n > 0);
+
+  const outCheapest = outPrices.length ? Math.min(...outPrices) : null;
+  const retCheapest = retPrices.length ? Math.min(...retPrices) : null;
+
+  const outSample = outbound.slice(0, sampleSize).map(f => ({
+    info: f?.info || '',
+    price: f?.price ?? null,
+    currency: f?.currency ?? null
+  }));
+  const retSample = ret.slice(0, sampleSize).map(f => ({
+    info: f?.info || '',
+    price: f?.price ?? null,
+    currency: f?.currency ?? null
+  }));
+
+  return {
+    resultUrl: result?.url || '',
+    currency,
+    outboundCount: outbound.length,
+    returnCount: ret.length,
+    outboundCheapest: outCheapest,
+    returnCheapest: retCheapest,
+    outboundSample: outSample,
+    returnSample: retSample
+  };
+}
+
 async function main() {
   const args = parseArgs(process.argv);
 
@@ -303,6 +349,17 @@ async function main() {
     });
 
     const job = poll.job || {};
+    const jobResult = job?.result || null;
+    const priceSummary = poll.status === 'done' ? summarizePrices(jobResult, 5) : {
+      resultUrl: '',
+      currency: '',
+      outboundCount: '',
+      returnCount: '',
+      outboundCheapest: '',
+      returnCheapest: '',
+      outboundSample: [],
+      returnSample: []
+    };
     const createdAt = job.createdAt ? new Date(job.createdAt).toISOString() : '';
     const startedAt = job.startedAt ? new Date(job.startedAt).toISOString() : '';
     const finishedAt = job.finishedAt ? new Date(job.finishedAt).toISOString() : '';
@@ -320,6 +377,14 @@ async function main() {
       jobId,
       status: poll.status,
       ...input,
+      resultUrl: priceSummary.resultUrl,
+      currency: priceSummary.currency,
+      outboundCount: priceSummary.outboundCount,
+      returnCount: priceSummary.returnCount,
+      outboundCheapest: priceSummary.outboundCheapest !== null ? String(priceSummary.outboundCheapest) : '',
+      returnCheapest: priceSummary.returnCheapest !== null ? String(priceSummary.returnCheapest) : '',
+      outboundSample: priceSummary.outboundSample,
+      returnSample: priceSummary.returnSample,
       requestSentAt,
       jobCreatedAt: createdAt,
       jobStartedAt: startedAt,

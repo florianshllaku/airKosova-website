@@ -4,9 +4,9 @@ const { runSearchAutomation, setupPageRouting, ensureOnHomepage, HOMEPAGE_URL, N
 const DEBUG_MODE = process.env.DEBUG_BROWSER === 'true';
 const SLOW_MO_MS = parseInt(process.env.SLOW_MO_MS || '0', 10) || 0;
 
-// Pool sizing (per your spec): 3 browsers with 10 workers each (30 total pages)
-const BROWSER_COUNT = 3;
-const WORKERS_PER_BROWSER = 10;
+// Pool sizing (per your spec): 2 browsers with 8 workers each (16 total pages)
+const BROWSER_COUNT = 2;
+const WORKERS_PER_BROWSER = 8;
 const WORKERS_TOTAL = BROWSER_COUNT * WORKERS_PER_BROWSER;
 const JOB_TIMEOUT_MS = Math.max(5000, parseInt(process.env.JOB_TIMEOUT_MS || '30000', 10) || 30000);
 const POOL_INIT_RETRIES = Math.max(0, parseInt(process.env.POOL_INIT_RETRIES || '3', 10) || 3);
