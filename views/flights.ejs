@@ -186,8 +186,18 @@
             apiCallStart: null,
             apiCallEnd: null,
             renderStart: null,
-            renderEnd: null
+            renderEnd: null,
+            searchClickEpoch: null,
+            resultsRenderedEpoch: null
         };
+
+        // Pull the "search button pressed" timestamp from the homepage (stored in sessionStorage).
+        try {
+            const v = sessionStorage.getItem('ak_search_click_ts');
+            frontendTiming.searchClickEpoch = v ? parseInt(v, 10) : null;
+        } catch (e) {
+            frontendTiming.searchClickEpoch = null;
+        }
 
         // Format date for display
         function formatDate(dateStr) {
@@ -454,9 +464,13 @@
 
                         // ⏱️ Track render end
                         frontendTiming.renderEnd = performance.now();
+                        frontendTiming.resultsRenderedEpoch = Date.now();
 
                         // Display and report timing
                         displayTimingInfo(data?.timing);
+
+                        // Clear stored click timestamp so it doesn't affect later navigations.
+                        try { sessionStorage.removeItem('ak_search_click_ts'); } catch (e) {}
                         break;
                     }
 
@@ -508,6 +522,10 @@
             const renderTime = frontendTiming.renderEnd - frontendTiming.renderStart;
             const totalFrontendTime = frontendTiming.renderEnd - frontendTiming.pageLoadStart;
             const totalUserPerceivedMs = apiTime + renderTime;
+            const clickToResultsMs =
+                frontendTiming.searchClickEpoch && frontendTiming.resultsRenderedEpoch
+                    ? (frontendTiming.resultsRenderedEpoch - frontendTiming.searchClickEpoch)
+                    : totalUserPerceivedMs;
             
             // Create timing panel
             const timingPanel = document.createElement('div');
@@ -520,7 +538,7 @@
                     </button>
                 </div>
                 <div class="timing-summary">
-                    <span class="timing-total">Total: <strong>${formatTime(totalUserPerceivedMs)}</strong></span>
+                    <span class="timing-total">Total (Click → Results): <strong>${formatTime(clickToResultsMs)}</strong></span>
                     <span class="timing-id">ID: ${backendTiming?.searchId || 'N/A'}</span>
                 </div>
                 <div class="timing-details" id="timingDetails" style="display: none;">
@@ -557,6 +575,10 @@
                     </div>
                     <div class="timing-section">
                         <h4><i class="fas fa-desktop"></i> Frontend</h4>
+                        <div class="timing-row highlight">
+                            <span>Click → Results</span>
+                            <span>${formatTime(clickToResultsMs)}</span>
+                        </div>
                         <div class="timing-row">
                             <span>API Round Trip</span>
                             <span>${formatTime(apiTime)}</span>

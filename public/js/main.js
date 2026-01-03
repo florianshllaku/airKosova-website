@@ -225,6 +225,14 @@ async function handleFormSubmit(e) {
         shakeElement(returnDateInput);
         return;
     }
+
+    // Store "search button pressed" timestamp so the results page can show true end-to-end timing.
+    // Use epoch time because `performance.now()` resets on navigation.
+    try {
+        sessionStorage.setItem('ak_search_click_ts', String(Date.now()));
+    } catch (e) {
+        // ignore (sessionStorage may be blocked)
+    }
     
     // Show loading state
     const searchBtn = document.querySelector('.search-btn');
