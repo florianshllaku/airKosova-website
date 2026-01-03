@@ -3,12 +3,19 @@ const express = require('express');
 const path = require('path');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
-const { searchFlights, airportCodes, PerformanceLogger } = require('./services/flightScraper');
+const { airportCodes, PerformanceLogger } = require('./services/flightScraper');
+const { pool } = require('./services/scraperPool');
 const { supabase } = require('./config/supabase');
 const { getTranslations } = require('./config/translations');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize Playwright pool at startup (2 browsers, 8 persistent workers)
+pool.init().catch(e => {
+    console.error('❌ Failed to initialize Playwright pool:', e.message);
+    process.exit(1);
+});
 
 // Middleware
 app.use(express.json());
@@ -228,122 +235,49 @@ app.get('/api/departures', (req, res) => {
     res.json({ departures });
 });
 
-// Search flights endpoint - triggers real scraping with performance tracking
+// Search flights endpoint - returns jobId immediately, scrape runs in background
 app.post('/api/search', async (req, res) => {
     const { departure, destination, departureDate, returnDate, adults, children, infants, tripType } = req.body;
     
-    // ⏱️ Create performance logger for this search
-    const perf = new PerformanceLogger();
-    perf.setSearchParams({ departure, destination, departureDate, returnDate, adults, children, infants, tripType });
-    
-    // ⏱️ TIMING: API Request Received
-    perf.startStep('api_request_received');
     console.log('🔍 Flight search request:', { departure, destination, departureDate, returnDate, adults, children, infants, tripType });
-    perf.endStep('api_request_received');
-    
-    try {
-        // ⏱️ TIMING: Scraper Execution
-        perf.startStep('scraper_execution');
-        
-        // Call the scraper with the performance logger
-        const results = await searchFlights({
-            departure,
-            destination,
-            departureDate,
-            returnDate,
-            adults,
-            children,
-            infants,
-            tripType
-        }, perf);
-        
-        perf.endStep('scraper_execution');
-        
-        // ⏱️ TIMING: API Response Sent
-        perf.startStep('api_response_sent');
-        
-        // Merge timing data from scraper's internal logger if available
-        const scraperPerf = results.performanceLogger;
-        if (scraperPerf) {
-            // Copy over scraper timing steps
-            for (const [key, value] of Object.entries(scraperPerf.timings)) {
-                if (!perf.timings[key]) {
-                    perf.timings[key] = value;
-                    perf.steps.push({ name: key, duration: value.duration, details: value.details });
-                }
-            }
-        }
-        
-        // Save performance report (only in development or if explicitly enabled)
-        if (process.env.NODE_ENV !== 'production' || process.env.SAVE_PERF_LOGS === 'true') {
-            try {
-                await perf.saveReport({
-                    results: {
-                        success: results.success,
-                        outboundCount: results.flights?.outbound?.flights?.length || 0,
-                        returnCount: results.flights?.return?.flights?.length || 0
-                    }
-                });
-            } catch (saveError) {
-                // Silently ignore in production
-                if (process.env.NODE_ENV !== 'production') {
-                    console.error('Failed to save performance report:', saveError.message);
-                }
-            }
-        }
-        
-        perf.endStep('api_response_sent');
-        
-        // Remove the performanceLogger from response (it's not serializable and large)
-        const { performanceLogger, ...responseData } = results;
-        
-        // Add timing summary to response for frontend
-        const timingSummary = {
-            searchId: perf.searchId,
-            totalTimeMs: perf.getTotalTime(),
-            breakdown: {
-                browserLaunch: perf.getStepDuration('browser_launch'),
-                pageNavigation: perf.getStepDuration('page_navigation'),
-                formFilling: perf.getStepDuration('fill_departure') + 
-                             perf.getStepDuration('fill_destination') + 
-                             perf.getStepDuration('select_dates') + 
-                             perf.getStepDuration('set_passengers') +
-                             perf.getStepDuration('select_trip_type'),
-                clickSearch: perf.getStepDuration('click_search'),
-                waitForResults: perf.getStepDuration('wait_for_results'),
-                dataExtraction: perf.getStepDuration('extract_flight_data'),
-                browserClose: perf.getStepDuration('browser_close')
-            }
-        };
-        
-        res.json({
-            ...responseData,
-            timing: timingSummary
-        });
-        
-    } catch (error) {
-        console.error('Search error:', error);
-        
-        // Save performance report on error (only in development)
-        if (process.env.NODE_ENV !== 'production' || process.env.SAVE_PERF_LOGS === 'true') {
-            try {
-                await perf.saveReport({
-                    results: { success: false, error: error.message }
-                });
-            } catch (saveError) {
-                // Silently ignore
-            }
-        }
-        
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            timing: {
-                searchId: perf.searchId,
-                totalTimeMs: perf.getTotalTime()
-            }
-        });
+
+    // Create a job and return immediately
+    const jobId = pool.submitJob({
+        departure,
+        destination,
+        departureDate,
+        returnDate,
+        adults,
+        children,
+        infants,
+        tripType
+    });
+
+    res.json({ jobId });
+});
+
+// Poll job status/results
+app.get('/api/jobs/:jobId', (req, res) => {
+    const jobId = req.params.jobId;
+    const job = pool.getJob(jobId);
+    if (!job) {
+        return res.status(404).json({ success: false, message: 'Job not found' });
     }
+
+    // Keep response small: include result only when done
+    const payload = {
+        success: true,
+        jobId: job.jobId,
+        status: job.status,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        finishedAt: job.finishedAt
+    };
+
+    if (job.status === 'done') payload.result = job.result;
+    if (job.status === 'failed') payload.error = job.error;
+
+    res.json(payload);
 });
 
 // ========================================

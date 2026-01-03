@@ -1,4 +1,3 @@
-const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const PerformanceLogger = require('./performanceLogger');
@@ -50,16 +49,13 @@ const TYPE_DELAY = 50;     // Typing speed - SLOW for accuracy (50ms per charact
 // Angular Material autocomplete options can appear as `mat-option` or `mat-mdc-option` depending on site version.
 const AUTOCOMPLETE_OPTION_SELECTOR = 'mat-option, mat-mdc-option, .mat-mdc-option, [role="option"]';
 
-// ============================================
-// BROWSER POOL - Keep browser alive between searches
-// ============================================
-const BROWSER_IDLE_TIMEOUT = 30 * 60 * 1000; // Close browser after 30 minutes of inactivity
+// Request blocking (speed): keep safe defaults that don't break the app.
+// - Always block heavy assets (images/fonts/media)
+// - Block common trackers/analytics unless explicitly disabled
+const BLOCK_TRACKERS = process.env.BLOCK_TRACKERS !== 'false';
 
-let browserInstance = null;
-let contextInstance = null;
-let pageInstance = null;
-let idleTimer = null;
-let isPageReady = false;
+// Homepage for resetting workers after each job
+const HOMEPAGE_URL = process.env.PRISHTINATICKET_HOME || 'https://prishtinaticket.net/';
 
 function log(emoji, message) {
     if (VERBOSE) {
@@ -75,6 +71,42 @@ function logAlways(emoji, message) {
 
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Register request blocking rules for speed.
+ * Call once per page (worker).
+ */
+async function setupPageRouting(page) {
+    if (page.__akRouteSetup) return;
+    await page.route('**/*', route => {
+        const req = route.request();
+        const t = req.resourceType();
+        const url = req.url();
+
+        // Heavy assets we never need for scraping speed
+        if (t === 'image' || t === 'font' || t === 'media') return route.abort();
+
+        // Trackers/analytics (safe to block; can be disabled via BLOCK_TRACKERS=false)
+        if (BLOCK_TRACKERS) {
+            const u = url.toLowerCase();
+            if (
+                u.includes('googletagmanager') ||
+                u.includes('google-analytics') ||
+                u.includes('doubleclick') ||
+                u.includes('hotjar') ||
+                u.includes('analytics') ||
+                u.includes('facebook') ||
+                u.includes('fbq') ||
+                u.includes('clarity.ms')
+            ) {
+                return route.abort();
+            }
+        }
+
+        return route.continue();
+    });
+    page.__akRouteSetup = true;
 }
 
 async function dismissCookieBanner(page) {
@@ -165,143 +197,22 @@ async function selectCityFromAutocomplete(page, inputLocator, cityTextOrObj) {
     return false;
 }
 
-// Reset the idle timer - browser will close after 5 min of no searches
-function resetIdleTimer() {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(async () => {
-        logAlways('💤', 'Browser idle for 30 minutes - closing to save RAM');
-        await closeBrowser();
-    }, BROWSER_IDLE_TIMEOUT);
-}
-
-// Close browser and reset state
-async function closeBrowser() {
-    if (idleTimer) {
-        clearTimeout(idleTimer);
-        idleTimer = null;
-    }
-    if (browserInstance) {
-        try {
-            if (contextInstance) {
-                try { await contextInstance.close(); } catch (e) {}
-                contextInstance = null;
-            }
-            await browserInstance.close();
-        } catch (e) {}
-        browserInstance = null;
-        contextInstance = null;
-        pageInstance = null;
-        isPageReady = false;
-        logAlways('🔒', 'Browser closed');
-    }
-}
-
-// Get or create browser instance
-async function getBrowser() {
-    if (browserInstance) {
-        // Check if browser is still alive
-        try {
-            await browserInstance.version();
-            return browserInstance;
-        } catch (e) {
-            // Browser died, recreate
-            browserInstance = null;
-            contextInstance = null;
-            pageInstance = null;
-            isPageReady = false;
-        }
-    }
-    
-    logAlways('🚀', 'Launching new browser instance...');
-    browserInstance = await chromium.launch({
-        headless: !DEBUG_MODE,
-        slowMo: DEBUG_MODE ? SLOW_MO_MS : 0,
-        args: [
-            '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-            '--disable-gpu', '--disable-extensions', '--disable-background-networking',
-            '--disable-default-apps', '--disable-sync', '--mute-audio', '--no-first-run',
-            '--window-size=1280,900'
-        ],
-        // Keep compatibility with existing env var if you set a custom Chromium path
-        executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-    });
-
-    // Create a reusable context (Playwright doesn't provide a default blank tab)
-    contextInstance = await browserInstance.newContext({
-        viewport: { width: 1280, height: 900 }
-    });
-
-    return browserInstance;
-}
-
-// Get or create page instance (already on homepage)
-async function getPage(browser) {
-    // Always prefer reusing the same page/tab if it's still alive.
-    if (pageInstance && !pageInstance.isClosed()) {
-        try {
-            await pageInstance.title();
-            return { page: pageInstance, wasReused: true };
-        } catch (e) {
-            pageInstance = null;
-            isPageReady = false;
-        }
-    }
-
-    if (!contextInstance) {
-        // Shouldn't happen unless the browser was recreated mid-flight
-        contextInstance = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    }
-
-    logAlways('📄', 'Creating new page...');
-    pageInstance = await contextInstance.newPage();
-
-    // Block heavy resources (set up only once per page)
-    if (!pageInstance.__akRouteSetup) {
-        await pageInstance.route('**/*', route => {
-            const req = route.request();
-            const t = req.resourceType();
-            const url = req.url();
-            if (t === 'image' || t === 'font' || t === 'media' || url.includes('analytics') || url.includes('facebook')) {
-                return route.abort();
-            }
-            return route.continue();
-        });
-        pageInstance.__akRouteSetup = true;
-    }
-
-    return { page: pageInstance, wasReused: false };
-}
-
 // Navigate to homepage (or click logo to return)
-async function ensureOnHomepage(page, wasReused) {
-    if (wasReused) {
-        // Page was reused - should already be on homepage from previous search
-        // Verify we're on the right page
-        const url = page.url();
-        if (url.includes('prishtinaticket.net') && !url.includes('/booking')) {
-            log('♻️', 'Page already on homepage - reusing!');
-            // Cookie banner can appear later and block clicks; clear it even on reuse.
-            await dismissCookieBanner(page);
-            isPageReady = true;
-            return true; // Already on homepage
-        }
-    }
-    
-    // Need to navigate to homepage
-    await page.goto('https://www.prishtinaticket.net/en', { 
+async function ensureOnHomepage(page) {
+    await page.goto(HOMEPAGE_URL, {
         waitUntil: 'domcontentloaded',
-        timeout: 20000 
+        timeout: 20000
     });
-    
+
     // Disable animations
     await page.addStyleTag({ content: '* { animation: none !important; transition: none !important; }' });
     await wait(WAIT_PAGE);
 
     // Cookie banner can block clicks/autocomplete dropdowns
     await dismissCookieBanner(page);
-    
-    isPageReady = true;
-    return false; // Fresh navigation
+
+    // Extra readiness check
+    await page.waitForSelector('input[aria-autocomplete], input[matinput]', { timeout: 8000 }).catch(() => {});
 }
 
 // Click logo to return to homepage after extraction
@@ -335,12 +246,11 @@ async function returnToHomepage(page) {
 
         // We consider ourselves "ready" once we are not on booking/results view
         const url = page.url();
-        isPageReady = url.includes('prishtinaticket.net') && !url.includes('/booking');
-        log('🏠', `Returned to homepage via logo click (${isPageReady ? 'ready' : 'not-ready'})`);
-        return isPageReady;
+        const ready = url.includes('prishtinaticket.net') && !url.includes('/booking');
+        log('🏠', `Returned to homepage via logo click (${ready ? 'ready' : 'not-ready'})`);
+        return ready;
     } catch (e) {
         log('⚠️', 'Logo click failed, will navigate fresh next time: ' + e.message);
-        isPageReady = false;
         return false;
     }
 }
@@ -366,59 +276,38 @@ async function saveDebugInfo(page, searchParams, reason, extra = null) {
     }
 }
 
-async function searchFlights(searchParams, performanceLogger = null) {
-    const { departure, destination, departureDate, returnDate, adults = 1, children = 0, infants = 0, tripType = 'roundtrip' } = searchParams;
-    
-    const perf = performanceLogger || new PerformanceLogger();
-    perf.setSearchParams(searchParams);
-    
-    const fromCode = airportCodes[departure] || departure;
-    const toCode = airportCodes[destination] || destination;
-    const fromCity = cityNames[fromCode] || departure;
-    const toCity = cityNames[toCode] || destination;
-    
-    const depDate = new Date(departureDate);
-    const retDate = returnDate ? new Date(returnDate) : null;
-    
-    const totalAdults = parseInt(adults) || 1;
-    const totalChildren = parseInt(children) || 0;
-    const totalInfants = parseInt(infants) || 0;
-    
-    logAlways('🔍', `Search: ${fromCode}→${toCode} | ${depDate.toLocaleDateString()}${retDate ? ' → ' + retDate.toLocaleDateString() : ''}`);
-    
-    // Reset idle timer - browser stays alive
-    resetIdleTimer();
-    
-    let page;
-    let wasReused = false;
-    
-    try {
-        // STEP 1: Get browser (reuse or launch)
-        perf.startStep('browser_launch');
-        const browser = await getBrowser();
-        const pageResult = await getPage(browser);
-        page = pageResult.page;
-        wasReused = pageResult.wasReused;
-        perf.endStep('browser_launch');
+/**
+ * Core automation: runs a flight search using the provided Playwright page.
+ * Browser/page lifecycle is managed by the worker pool.
+ */
+async function runSearchAutomation(page, searchParams, performanceLogger = null) {
+        const { departure, destination, departureDate, returnDate, adults = 1, children = 0, infants = 0, tripType = 'roundtrip' } = searchParams;
         
-        if (wasReused) {
-            log('♻️', `Browser REUSED: ${perf.getStepDuration('browser_launch')}ms`);
-        } else {
-            log('🆕', `Browser launched: ${perf.getStepDuration('browser_launch')}ms`);
-        }
+        const perf = performanceLogger || new PerformanceLogger();
+        perf.setSearchParams(searchParams);
         
-        // STEP 2: Navigate to homepage (or verify already there)
-        perf.startStep('page_navigation');
-        const skippedNavigation = await ensureOnHomepage(page, wasReused);
-        perf.endStep('page_navigation');
+        const fromCode = airportCodes[departure] || departure;
+        const toCode = airportCodes[destination] || destination;
+        const fromCity = cityNames[fromCode] || departure;
+        const toCity = cityNames[toCode] || destination;
         
-        if (skippedNavigation) {
-            log('⚡', `Navigation SKIPPED (already on homepage): ${perf.getStepDuration('page_navigation')}ms`);
-        } else {
-            log('✅', `Navigate: ${perf.getStepDuration('page_navigation')}ms`);
-        }
+        const depDate = new Date(departureDate);
+        const retDate = returnDate ? new Date(returnDate) : null;
+        
+        const totalAdults = parseInt(adults) || 1;
+        const totalChildren = parseInt(children) || 0;
+        const totalInfants = parseInt(infants) || 0;
+        
+        logAlways('🔍', `Search: ${fromCode}→${toCode} | ${depDate.toLocaleDateString()}${retDate ? ' → ' + retDate.toLocaleDateString() : ''}`);
 
-        // STEP 3: Form filling (UI)
+        try {
+            // STEP 1: Navigate to homepage (workers are reset to homepage after each job, but we hard-navigate to be safe)
+            perf.startStep('page_navigation');
+            await ensureOnHomepage(page);
+            perf.endStep('page_navigation');
+            log('✅', `Navigate: ${perf.getStepDuration('page_navigation')}ms`);
+
+            // STEP 2: Form filling (UI)
         perf.startStep('form_filling');
         
         // Trip type
@@ -454,7 +343,7 @@ async function searchFlights(searchParams, performanceLogger = null) {
         perf.endStep('form_filling');
         log('✅', `Form: ${perf.getStepDuration('form_filling')}ms`);
         
-        // STEP 4: Dates
+            // STEP 3: Dates
         perf.startStep('select_dates');
         
         const datePickerBtn = tripType === 'oneway' ? 'lib-datepicker button' : 'lib-range-datepicker button';
@@ -513,7 +402,7 @@ async function searchFlights(searchParams, performanceLogger = null) {
         perf.endStep('select_dates');
         log('✅', `Dates: ${perf.getStepDuration('select_dates')}ms`);
         
-        // STEP 5: Passengers (only if needed)
+            // STEP 4: Passengers (only if needed)
         if (totalAdults > 1 || totalChildren > 0 || totalInfants > 0) {
             perf.startStep('set_passengers');
             try {
@@ -843,39 +732,34 @@ async function searchFlights(searchParams, performanceLogger = null) {
         
         perf.printSummary();
         
-        return {
-            success: true,
-            url: page.url(),
-            searchParams: { from: departure, to: destination, fromCode, toCode, departureDate, returnDate, adults: totalAdults, children: totalChildren, infants: totalInfants, tripType },
-            flights: {
-                outbound: { route: extracted.outbound?.route, flights: extracted.outbound?.flights || [] },
-                return: { route: extracted.return?.route, flights: extracted.return?.flights || [] },
-                currency: 'EUR'
-            },
-            performanceLogger: perf,
-            browserReused: wasReused
-        };
-        
-    } catch (error) {
-        logAlways('❌', 'Error: ' + error.message);
-        if (page) await saveDebugInfo(page, searchParams, error.message);
-        
-        // On error, mark page as not ready so next search starts fresh
-        isPageReady = false;
-        
-        return { success: false, error: error.message, flights: { outbound: { flights: [] }, return: { flights: [] } }, performanceLogger: perf };
-    }
-    // NOTE: We don't close browser here anymore! It stays open for next search.
+            return {
+                success: true,
+                url: page.url(),
+                searchParams: { from: departure, to: destination, fromCode, toCode, departureDate, returnDate, adults: totalAdults, children: totalChildren, infants: totalInfants, tripType },
+                flights: {
+                    outbound: { route: extracted.outbound?.route, flights: extracted.outbound?.flights || [] },
+                    return: { route: extracted.return?.route, flights: extracted.return?.flights || [] },
+                    currency: 'EUR'
+                },
+                performanceLogger: perf,
+                browserReused: true
+            };
+            
+        } catch (error) {
+            logAlways('❌', 'Error: ' + error.message);
+            if (page) await saveDebugInfo(page, searchParams, error.message);
+            
+            return { success: false, error: error.message, flights: { outbound: { flights: [] }, return: { flights: [] } }, performanceLogger: perf };
+        }
 }
 
 // Graceful shutdown
-async function shutdown() {
-    logAlways('🛑', 'Shutting down browser pool...');
-    await closeBrowser();
-}
-
-// Handle process termination
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
-
-module.exports = { searchFlights, airportCodes, PerformanceLogger, closeBrowser };
+module.exports = {
+    runSearchAutomation,
+    setupPageRouting,
+    ensureOnHomepage,
+    returnToHomepage,
+    HOMEPAGE_URL,
+    airportCodes,
+    PerformanceLogger
+};

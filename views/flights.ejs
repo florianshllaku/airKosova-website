@@ -404,7 +404,7 @@
         }
         }
 
-        // Search flights
+        // Search flights (job-based: returns jobId immediately + polling)
         async function searchFlights() {
             updateHeader();
             
@@ -418,24 +418,61 @@
                     body: JSON.stringify(searchParams)
                 });
                 
-                const data = await response.json();
+                const { jobId } = await response.json();
+                if (!jobId) throw new Error('No jobId returned from server');
                 
                 // ⏱️ Track API call end
                 frontendTiming.apiCallEnd = performance.now();
-                
-                // ⏱️ Track render start
-                frontendTiming.renderStart = performance.now();
-                
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('flightsResults').style.display = 'block';
-                
-                renderFlights(data);
-                
-                // ⏱️ Track render end
-                frontendTiming.renderEnd = performance.now();
-                
-                // Display and report timing
-                displayTimingInfo(data.timing);
+
+                // Poll for completion
+                const pollStart = performance.now();
+                let attempt = 0;
+                while (true) {
+                    attempt++;
+                    const jobResp = await fetch(`/api/jobs/${jobId}`);
+                    const job = await jobResp.json();
+                    const status = job?.status;
+
+                    // Update loader text based on status
+                    const sub = document.querySelector('.loader-subtext');
+                    if (sub) {
+                        if (status === 'queued') sub.textContent = 'High demand, preparing search…';
+                        else if (status === 'running') sub.textContent = 'Searching…';
+                        else sub.textContent = 'Processing…';
+                    }
+
+                    if (status === 'done') {
+                        const data = job.result;
+
+                        // ⏱️ Track render start
+                        frontendTiming.renderStart = performance.now();
+
+                        document.getElementById('loadingState').style.display = 'none';
+                        document.getElementById('flightsResults').style.display = 'block';
+
+                        renderFlights(data);
+
+                        // ⏱️ Track render end
+                        frontendTiming.renderEnd = performance.now();
+
+                        // Display and report timing
+                        displayTimingInfo(data?.timing);
+                        break;
+                    }
+
+                    if (status === 'failed') {
+                        throw new Error(job?.error || 'Job failed');
+                    }
+
+                    // Poll interval 500–900ms (jitter)
+                    const waitMs = 500 + Math.floor(Math.random() * 400);
+                    await new Promise(r => setTimeout(r, waitMs));
+
+                    // Hard client-side safety stop (60s)
+                    if (performance.now() - pollStart > 60000) {
+                        throw new Error('Search is taking too long. Please try again.');
+                    }
+                }
                 
             } catch (error) {
                 console.error('Search error:', error);
@@ -448,6 +485,10 @@
                     <div class="no-flights error">
                         <i class="fas fa-exclamation-circle"></i>
                         <p>Ndodhi një gabim gjatë kërkimit. Ju lutemi provoni përsëri.</p>
+                        <small style="display:block;margin-top:6px;opacity:0.85;">${error.message || ''}</small>
+                        <button class="modify-search-btn" onclick="window.location.reload()" style="margin-top:12px;">
+                            <i class="fas fa-rotate-right"></i> Try again
+                        </button>
                     </div>
                 `;
                 if (searchParams.tripType === 'roundtrip') {
