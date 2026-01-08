@@ -8,5 +8,8 @@ logs/
 # local overrides (keep if you want)
 env.local
 
+# Generated load-test reports
+reports/
+
 
 

@@ -1,11 +1,12 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const fs = require('fs');
 
 // Load .env (single source of truth)
 dotenv.config();
 
 const express = require('express');
-const { searchFlights } = require('./src/scraper');
+const { searchFlights, getPoolStatus } = require('./src/scraper');
 
 function parseBool(v, defaultValue = false) {
   if (v === undefined || v === null) return defaultValue;
@@ -82,6 +83,17 @@ app.get('/api/health', (req, res) => {
     uptimeSec: Math.round(process.uptime())
   });
 });
+
+app.get('/api/pool', (req, res) => {
+  res.json({ ok: true, pool: getPoolStatus() });
+});
+
+// Host performance/load-test reports
+const REPORTS_DIR = path.join(__dirname, 'reports');
+try { fs.mkdirSync(REPORTS_DIR, { recursive: true }); } catch (_) {}
+app.use('/reports', express.static(REPORTS_DIR, {
+  index: ['index.html']
+}));
 
 app.post('/api/search', async (req, res) => {
   try {

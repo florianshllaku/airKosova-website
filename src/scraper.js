@@ -34,6 +34,54 @@ async function closePool() {
   }
 }
 
+function getPoolStatus() {
+  const p = _pool;
+  if (!p) {
+    return {
+      initialized: false,
+      key: null,
+      headless: null,
+      targetHome: null,
+      browsers: [],
+      waiters: 0
+    };
+  }
+
+  const browsers = (p.browsers || []).map((b) => {
+    const tabs = (b.pages || []).map((t) => ({
+      tabIndex: t.index,
+      busy: !!t.busy,
+      warmed: !!t.warmed,
+      lastAcquireAtMs: t.lastAcquireAtMs || null,
+      lastReleaseAtMs: t.lastReleaseAtMs || null,
+      lastUrl: t.lastUrl || null,
+      lastError: t.lastError || null
+    }));
+    const busyCount = tabs.filter((x) => x.busy).length;
+    return {
+      browserIndex: b.index,
+      busyCount,
+      tabsCount: tabs.length,
+      tabs
+    };
+  });
+
+  const totalTabs = browsers.reduce((s, b) => s + b.tabsCount, 0);
+  const totalBusy = browsers.reduce((s, b) => s + b.busyCount, 0);
+
+  return {
+    initialized: true,
+    key: p.key,
+    headless: p.headless,
+    targetHome: p.targetHome,
+    totalTabs,
+    totalBusy,
+    totalFree: Math.max(0, totalTabs - totalBusy),
+    waiters: (p.waiters || []).length,
+    browsers
+  };
+}
+
 // Best-effort cleanup on shutdown.
 process.once('SIGINT', () => { closePool().finally(() => process.exit(0)); });
 process.once('SIGTERM', () => { closePool().finally(() => process.exit(0)); });
@@ -78,7 +126,7 @@ async function ensurePool({
           page.setDefaultTimeout(30000);
           page.setDefaultNavigationTimeout(60000);
         }
-        pages.push({ index: pi, page, busy: false, warmed: false });
+        pages.push({ index: pi, page, busy: false, warmed: false, lastAcquireAtMs: null, lastReleaseAtMs: null, lastUrl: null, lastError: null });
       }
 
       browsers.push({ index: bi, browser, context, pages });
@@ -119,6 +167,7 @@ async function acquireTab(pool) {
     for (const p of b.pages) {
       if (!p.busy) {
         p.busy = true;
+        p.lastAcquireAtMs = Date.now();
         return { browserIndex: b.index, tabIndex: p.index, context: b.context, page: p.page, _ref: p };
       }
     }
@@ -131,9 +180,11 @@ async function acquireTab(pool) {
 function releaseTab(pool, handle) {
   if (!pool || !handle || !handle._ref) return;
   handle._ref.busy = false;
+  handle._ref.lastReleaseAtMs = Date.now();
   const next = pool.waiters.shift();
   if (next) {
     handle._ref.busy = true;
+    handle._ref.lastAcquireAtMs = Date.now();
     next(handle);
   }
 }
@@ -794,12 +845,13 @@ async function searchFlights(input) {
       flights: scraped
     };
     } finally {
+      try { if (handle && handle._ref) handle._ref.lastUrl = handle.page?.url?.() || null; } catch (_) {}
       releaseTab(pool, handle);
     }
   };
   return await run();
 }
 
-module.exports = { searchFlights };
+module.exports = { searchFlights, getPoolStatus };
 
 

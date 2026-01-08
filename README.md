@@ -42,5 +42,19 @@ By default on Windows the app may open a visible browser window during scraping 
 - `SCRAPER_KEEP_READY=true` (resets tabs back to the provider homepage after each scrape)
 - `SCRAPER_POOL_BROWSERS=2` + `SCRAPER_POOL_TABS_PER_BROWSER=8` (enables parallel scraping; total concurrency = 16)
 
+### Load testing + performance reports
+
+The repo includes a simple load test script that generates an HTML report (with charts) into `reports/` which the server hosts at `/reports`.
+
+Run (defaults: 30 req/min for 5 minutes, max 16 in-flight):
+
+```bash
+BASE_URL=http://46.224.125.111:3000 RATE_PER_MIN=30 DURATION_MIN=5 MAX_IN_FLIGHT=16 npm run loadtest
+```
+
+Useful endpoints:
+- `GET /api/pool` shows busy/free status per browser tab
+- `GET /reports` shows the report index (after you run a load test)
+
 
 
