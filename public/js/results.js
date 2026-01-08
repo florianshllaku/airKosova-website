@@ -700,7 +700,7 @@ async function run() {
   const params = new URLSearchParams(window.location.search);
   const sid = params.get('sid') || '';
   if (!sid) {
-    setStatus('Missing sid. Go back and start a search.', true);
+    setStatus('No search in progress. Please start a new search.', true);
     return;
   }
 
@@ -717,22 +717,18 @@ async function run() {
     startedAtMs = epochNowMs();
     try { sessionStorage.setItem(`ak_startedAtMs_${sid}`, String(Math.round(startedAtMs))); } catch (_) {}
   }
-  const setE2E = (endAtMs, parts) => {
+  const setE2E = (endAtMs) => {
     if (!e2eEl) return;
     const total = endAtMs - startedAtMs;
-    const extra = parts ? ` (${parts})` : '';
-    e2eEl.textContent = `end-to-end: ${formatMs(total)}${extra}`;
+    e2eEl.textContent = `⏱ ${formatMs(total)}`;
   };
 
-  const healthLine = await fetchHealthLine();
-  const buildVer = (window.AK_BUILD && window.AK_BUILD.assetVersion) ? String(window.AK_BUILD.assetVersion) : '';
-  if (healthLine) {
-    setStatus(`Preparing search… (${healthLine}${buildVer ? `, pageBuild=${buildVer}` : ''})`);
-  }
+  await fetchHealthLine();
+  setStatus('Searching for available flights...');
 
   const payloadRaw = sessionStorage.getItem(`ak_payload_${sid}`);
   if (!payloadRaw) {
-    setStatus('Missing search payload (sessionStorage). Please go back and search again.', true);
+    setStatus('Your search session has expired. Please start a new search.', true);
     return;
   }
 
@@ -752,7 +748,7 @@ async function run() {
   try {
     payload = JSON.parse(payloadRaw);
   } catch (_) {
-    setStatus('Corrupted search payload. Please go back and search again.', true);
+    setStatus('Something went wrong. Please start a new search.', true);
     return;
   }
 
@@ -765,12 +761,13 @@ async function run() {
   }
 
   async function runScrape() {
-    setStatus(`Searching (Playwright)… this can take ~10–30s depending on the site.${healthLine ? ` (${healthLine})` : ''}`);
-    // Hide the view while loading so the user doesn't think stale results are current.
+    setStatus('Searching for available flights... This may take a few seconds.');
+    if (e2eEl) e2eEl.textContent = 'Searching...';
+    
+    // Hide the view while loading
     const view = getEl('resultsView');
     if (view) view.style.display = 'none';
 
-    const tFetchStart = epochNowMs();
     const resp = await fetch('/api/search', {
       method: 'POST',
       cache: 'no-store',
@@ -779,13 +776,12 @@ async function run() {
     });
     const json = await resp.json();
     if (!json.success) throw new Error(json.error || 'Search failed');
-    const tFetchEnd = epochNowMs();
 
-    setStatus(`Done. Source URL: ${json.data?.meta?.url || '—'}`);
+    setStatus('Flights found! Select your preferred option below.');
     renderFlights(json.data);
     await afterNextPaint();
     const tRendered = epochNowMs();
-    setE2E(tRendered, `network+scrape: ${formatMs(tFetchEnd - tFetchStart)}, render: ${formatMs(tRendered - tFetchEnd)}`);
+    setE2E(tRendered);
   }
 
   try {

@@ -60,7 +60,10 @@ app.get('/', (req, res) => {
     openBrowserOnSearch: computeOpenBrowserDefault(),
     // Default to closing ASAP; user can still override via the UI input if needed for debugging.
     keepBrowserOpenMs: Math.max(0, parseInt(process.env.KEEP_BROWSER_OPEN_MS || '0', 10) || 0),
-    targetSiteHome: process.env.TARGET_SITE_HOME || 'https://sys.prishtinaticket.net/'
+    targetSiteHome: process.env.TARGET_SITE_HOME || 'https://sys.prishtinaticket.net/',
+    // Supabase credentials for auth
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
   });
 });
 

@@ -3,328 +3,682 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AirKosova – Flight Search</title>
+  <title>AirKosova – Cheap Flights to Kosovo & Europe</title>
+  <meta name="description" content="Book affordable flights to Prishtina, Kosovo and major European cities. 10+ years of trusted service." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="home">
+  <!-- Top Bar -->
   <div class="topbar">
     <div class="topbar-inner">
       <div class="topbar-left">
         <a class="topbar-item" href="tel:+38338660880">+383 38 660 880</a>
-        <span class="topbar-sep">&amp;</span>
         <a class="topbar-item" href="tel:+38344955955">+383 44 955 955</a>
-        <span class="topbar-sep">&amp;</span>
-        <a class="topbar-item" href="tel:+41435052880">+41 43 505 28 80</a>
-        <span class="topbar-sep">|</span>
         <a class="topbar-item" href="mailto:info@airkosova.net">info@airkosova.net</a>
       </div>
       <div class="topbar-right">
-        <a class="topbar-item" href="#">LOGIN</a>
-        <span class="topbar-sep">|</span>
-        <span class="topbar-item">AL</span>
-        <span class="topbar-sep">|</span>
-        <span class="topbar-item">DE</span>
-        <span class="topbar-sep">|</span>
-        <span class="topbar-item">EN</span>
+        <span class="topbar-lang" data-lang="sq">AL</span>
+        <span class="topbar-lang" data-lang="de">DE</span>
+        <span class="topbar-lang active" data-lang="en">EN</span>
       </div>
     </div>
   </div>
 
   <div class="hero-page">
-    <div class="hero-nav">
-      <div class="container">
-        <div class="nav-row">
-          <div class="brand">
+    <!-- Navigation -->
+    <nav class="hero-nav">
+      <div class="nav-row">
+        <div class="brand">
+          <a href="/">
             <img class="brand-logo" src="/images/airkosova_logo.png" alt="AirKosova" />
+          </a>
+        </div>
+        <div class="nav-links">
+          <a class="nav-link active" href="#" data-i18n="nav_book">Book</a>
+          <a class="nav-link" href="#" data-i18n="nav_info">Information</a>
+          <a class="nav-link" href="#" data-i18n="nav_contact">Contact</a>
+          <a class="nav-link" href="#" data-i18n="nav_booking">My Booking</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Booking Section -->
+    <div class="booking-wrap">
+      <div class="booking-card">
+        <div class="booking-header">
+          <div class="booking-title" data-i18n="booking_title">Book Your Flight</div>
+          <div class="booking-tabs">
+            <button class="booking-tab active" id="tabFlights" data-i18n="tab_flights">Flights</button>
+            <button class="booking-tab" id="tabLogin" data-i18n="tab_login">Login</button>
           </div>
-          <nav class="nav-links" aria-label="Primary">
-            <a class="nav-link active" href="#">Rezervo</a>
-            <a class="nav-link" href="#">Informacione</a>
-            <a class="nav-link" href="#">Kontakti</a>
-            <a class="nav-link" href="#">Fluturimet</a>
-            <a class="nav-link" href="#">LOGIN</a>
-          </nav>
+        </div>
+
+        <!-- Flights Form -->
+        <form id="searchForm" class="booking-form">
+          <div class="grid">
+            <label class="field">
+              <span class="field-label" data-i18n="field_from">From</span>
+              <select name="departure" required>
+                <option value="PRN" selected>Prishtina (PRN)</option>
+                <option value="ARN">Stockholm (ARN)</option>
+                <option value="BER">Berlin Brandenburg (BER)</option>
+                <option value="BGY">Milano Bergamo (BGY)</option>
+                <option value="BRE">Bremen (BRE)</option>
+                <option value="BRU">Brussels (BRU)</option>
+                <option value="BSL">Basel (BSL)</option>
+                <option value="CGN">Köln/Bonn (CGN)</option>
+                <option value="DTM">Dortmund (DTM)</option>
+                <option value="DUS">Düsseldorf (DUS)</option>
+                <option value="FMM">Memmingen (FMM)</option>
+                <option value="FMO">Münster-Osnabrück (FMO)</option>
+                <option value="GOT">Göteborg Landvetter (GOT)</option>
+                <option value="GVA">Geneva (GVA)</option>
+                <option value="HAJ">Hannover (HAJ)</option>
+                <option value="HAM">Hamburg (HAM)</option>
+                <option value="HEL">Helsinki (HEL)</option>
+                <option value="LJU">Ljubljana (LJU)</option>
+                <option value="LUX">Luxembourg (LUX)</option>
+                <option value="MMX">Malmö (MMX)</option>
+                <option value="MUC">München (MUC)</option>
+                <option value="NUE">Nürnberg (NUE)</option>
+                <option value="OSL">Oslo (OSL)</option>
+                <option value="STR">Stuttgart (STR)</option>
+                <option value="SZG">Salzburg (SZG)</option>
+                <option value="VIE">Vienna (VIE)</option>
+                <option value="VXO">Växjö-Småland (VXO)</option>
+                <option value="ZRH">Zürich (ZRH)</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field-label" data-i18n="field_to">To</span>
+              <select name="destination" required>
+                <option value="PRN">Prishtina (PRN)</option>
+                <option value="ARN">Stockholm (ARN)</option>
+                <option value="BER">Berlin Brandenburg (BER)</option>
+                <option value="BGY">Milano Bergamo (BGY)</option>
+                <option value="BRE">Bremen (BRE)</option>
+                <option value="BRU">Brussels (BRU)</option>
+                <option value="BSL" selected>Basel (BSL)</option>
+                <option value="CGN">Köln/Bonn (CGN)</option>
+                <option value="DTM">Dortmund (DTM)</option>
+                <option value="DUS">Düsseldorf (DUS)</option>
+                <option value="FMM">Memmingen (FMM)</option>
+                <option value="FMO">Münster-Osnabrück (FMO)</option>
+                <option value="GOT">Göteborg Landvetter (GOT)</option>
+                <option value="GVA">Geneva (GVA)</option>
+                <option value="HAJ">Hannover (HAJ)</option>
+                <option value="HAM">Hamburg (HAM)</option>
+                <option value="HEL">Helsinki (HEL)</option>
+                <option value="LJU">Ljubljana (LJU)</option>
+                <option value="LUX">Luxembourg (LUX)</option>
+                <option value="MMX">Malmö (MMX)</option>
+                <option value="MUC">München (MUC)</option>
+                <option value="NUE">Nürnberg (NUE)</option>
+                <option value="OSL">Oslo (OSL)</option>
+                <option value="STR">Stuttgart (STR)</option>
+                <option value="SZG">Salzburg (SZG)</option>
+                <option value="VIE">Vienna (VIE)</option>
+                <option value="VXO">Växjö-Småland (VXO)</option>
+                <option value="ZRH">Zürich (ZRH)</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field-label" data-i18n="field_departure">Departure</span>
+              <input name="departureDate" type="date" required />
+            </label>
+
+            <label class="field">
+              <span class="field-label" data-i18n="field_return">Return</span>
+              <input name="returnDate" type="date" />
+            </label>
+          </div>
+
+          <div class="grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 16px;">
+            <label class="field">
+              <span class="field-label" data-i18n="field_adults">Adults</span>
+              <input name="adults" type="number" min="1" max="9" value="1" />
+            </label>
+
+            <label class="field">
+              <span class="field-label" data-i18n="field_children">Children (2-11)</span>
+              <input name="children" type="number" min="0" max="9" value="0" />
+            </label>
+
+            <label class="field">
+              <span class="field-label" data-i18n="field_infants">Infants (0-2)</span>
+              <input name="infants" type="number" min="0" max="9" value="0" />
+            </label>
+          </div>
+
+          <div id="passengerError" class="passenger-error" style="display: none;" data-i18n="error_passengers">Maximum 5 passengers allowed per booking.</div>
+
+          <div class="booking-row">
+            <div class="booking-radios">
+              <label class="radio">
+                <input type="radio" name="tripType" value="roundtrip" checked />
+                <span data-i18n="trip_roundtrip">Round Trip</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="tripType" value="oneway" />
+                <span data-i18n="trip_oneway">One Way</span>
+              </label>
+              <span class="eur-note" data-i18n="prices_eur">All prices in EUR</span>
+            </div>
+
+            <div class="booking-actions">
+              <input type="hidden" name="openBrowser" value="<%= openBrowserOnSearch ? 'on' : '' %>" />
+              <input type="hidden" name="keepBrowserOpenMs" value="<%= keepBrowserOpenMs %>" />
+              <button class="btn booking-btn" type="submit" id="searchBtn" data-i18n="btn_search">Search Flights</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Login Form (hidden by default) -->
+        <div id="loginFormContainer" class="login-form-container" style="display: none;">
+          <div class="login-form-inner">
+            <h3 data-i18n="login_title">Customer Login</h3>
+            <p class="login-subtitle" data-i18n="login_subtitle">Sign in to manage your bookings</p>
+            
+            <form id="loginForm" class="auth-form">
+              <div class="auth-field">
+                <label for="loginEmail" data-i18n="login_email">Email</label>
+                <input type="email" id="loginEmail" name="email" placeholder="your@email.com" required />
+              </div>
+              <div class="auth-field">
+                <label for="loginPassword" data-i18n="login_password">Password</label>
+                <input type="password" id="loginPassword" name="password" placeholder="••••••••" required />
+              </div>
+              <div id="loginError" class="auth-error" style="display: none;"></div>
+              <button type="submit" class="btn booking-btn auth-btn" id="loginSubmitBtn" data-i18n="login_btn">Sign In</button>
+            </form>
+            
+            <div class="auth-divider">
+              <span data-i18n="login_or">or</span>
+            </div>
+            
+            <div class="auth-links">
+              <p><span data-i18n="login_no_account">Don't have an account?</span> <a href="#" id="showRegister" data-i18n="login_register">Register</a></p>
+              <p><a href="#" id="showForgotPassword" data-i18n="login_forgot">Forgot password?</a></p>
+            </div>
+          </div>
+          
+          <!-- Register Form (hidden) -->
+          <div id="registerFormContainer" class="login-form-inner" style="display: none;">
+            <h3 data-i18n="register_title">Create Account</h3>
+            <p class="login-subtitle" data-i18n="register_subtitle">Sign up to book and manage flights</p>
+            
+            <form id="registerForm" class="auth-form">
+              <div class="auth-field">
+                <label for="registerEmail" data-i18n="register_email">Email</label>
+                <input type="email" id="registerEmail" name="email" placeholder="your@email.com" required />
+              </div>
+              <div class="auth-field">
+                <label for="registerPassword" data-i18n="register_password">Password</label>
+                <input type="password" id="registerPassword" name="password" placeholder="••••••••" minlength="6" required />
+              </div>
+              <div class="auth-field">
+                <label for="registerPasswordConfirm" data-i18n="register_confirm">Confirm Password</label>
+                <input type="password" id="registerPasswordConfirm" name="passwordConfirm" placeholder="••••••••" minlength="6" required />
+              </div>
+              <div id="registerError" class="auth-error" style="display: none;"></div>
+              <div id="registerSuccess" class="auth-success" style="display: none;"></div>
+              <button type="submit" class="btn booking-btn auth-btn" id="registerSubmitBtn" data-i18n="register_btn">Create Account</button>
+            </form>
+            
+            <div class="auth-links" style="margin-top: 20px;">
+              <p><span data-i18n="register_have_account">Already have an account?</span> <a href="#" id="showLogin" data-i18n="register_login">Sign In</a></p>
+            </div>
+          </div>
+          
+          <!-- Forgot Password Form (hidden) -->
+          <div id="forgotFormContainer" class="login-form-inner" style="display: none;">
+            <h3 data-i18n="forgot_title">Reset Password</h3>
+            <p class="login-subtitle" data-i18n="forgot_subtitle">Enter your email to receive a reset link</p>
+            
+            <form id="forgotForm" class="auth-form">
+              <div class="auth-field">
+                <label for="forgotEmail" data-i18n="forgot_email">Email</label>
+                <input type="email" id="forgotEmail" name="email" placeholder="your@email.com" required />
+              </div>
+              <div id="forgotError" class="auth-error" style="display: none;"></div>
+              <div id="forgotSuccess" class="auth-success" style="display: none;"></div>
+              <button type="submit" class="btn booking-btn auth-btn" id="forgotSubmitBtn" data-i18n="forgot_btn">Send Reset Link</button>
+            </form>
+            
+            <div class="auth-links" style="margin-top: 20px;">
+              <p><a href="#" id="backToLogin" data-i18n="forgot_back">← Back to Sign In</a></p>
+            </div>
+          </div>
+          
+          <!-- Logged In State (hidden) -->
+          <div id="loggedInContainer" class="login-form-inner" style="display: none;">
+            <div class="user-welcome">
+              <div class="user-avatar" id="userAvatar">U</div>
+              <h3 data-i18n="welcome_title">Welcome back!</h3>
+              <p id="userEmail" class="user-email"></p>
+            </div>
+            <button type="button" class="btn secondary auth-btn" id="logoutBtn" data-i18n="logout_btn">Sign Out</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="container">
-      <div class="booking-wrap">
-        <div class="booking-card">
-          <div class="booking-title">BOOK YOUR FLIGHT</div>
-
-          <div class="booking-tabs" role="tablist" aria-label="Search tabs">
-            <button class="booking-tab active" type="button" role="tab" aria-selected="true">✈️ FLUTURIMET</button>
-            <button class="booking-tab" type="button" role="tab" aria-selected="false">👤 HYR</button>
-          </div>
-
-          <form id="searchForm" class="booking-form">
-            <div class="grid">
-              <label class="field">
-                <span class="field-label">NISJA:</span>
-                <select name="departure" required>
-                  <option value="PRN" selected>Prishtina (PRN)</option>
-                  <option value="ARN">Stockholm (ARN)</option>
-                  <option value="BER">Berlin Brandenburg (BER)</option>
-                  <option value="BGY">Milano Bergamo (BGY)</option>
-                  <option value="BRE">Bremen (BRE)</option>
-                  <option value="BRU">Brussels (BRU)</option>
-                  <option value="BSL">Basel (BSL)</option>
-                  <option value="CGN">Köln/Bonn (CGN)</option>
-                  <option value="DTM">Dortmund (DTM)</option>
-                  <option value="DUS">Düsseldorf (DUS)</option>
-                  <option value="FMM">Memmingen (FMM)</option>
-                  <option value="FMO">Münster-Osnabrück (FMO)</option>
-                  <option value="GOT">Göteborg Landvetter (GOT)</option>
-                  <option value="GVA">Geneva (GVA)</option>
-                  <option value="HAJ">Hannover (HAJ)</option>
-                  <option value="HAM">Hamburg (HAM)</option>
-                  <option value="HEL">Helsinki (HEL)</option>
-                  <option value="LJU">Ljubljana (LJU)</option>
-                  <option value="LUX">Luxembourg (LUX)</option>
-                  <option value="MMX">Malmö (MMX)</option>
-                  <option value="MUC">München (MUC)</option>
-                  <option value="NUE">Nürnberg (NUE)</option>
-                  <option value="OSL">Oslo (OSL)</option>
-                  <option value="STR">Stuttgart (STR)</option>
-                  <option value="SZG">Salzburg (SZG)</option>
-                  <option value="VIE">Vienna (VIE)</option>
-                  <option value="VXO">Växjö-Småland (VXO)</option>
-                  <option value="ZRH">Zürich (ZRH)</option>
-                </select>
-              </label>
-
-              <label class="field">
-                <span class="field-label">DESTINACIONI:</span>
-                <select name="destination" required>
-                  <option value="PRN">Prishtina (PRN)</option>
-                  <option value="ARN">Stockholm (ARN)</option>
-                  <option value="BER">Berlin Brandenburg (BER)</option>
-                  <option value="BGY">Milano Bergamo (BGY)</option>
-                  <option value="BRE">Bremen (BRE)</option>
-                  <option value="BRU">Brussels (BRU)</option>
-                  <option value="BSL" selected>Basel (BSL)</option>
-                  <option value="CGN">Köln/Bonn (CGN)</option>
-                  <option value="DTM">Dortmund (DTM)</option>
-                  <option value="DUS">Düsseldorf (DUS)</option>
-                  <option value="FMM">Memmingen (FMM)</option>
-                  <option value="FMO">Münster-Osnabrück (FMO)</option>
-                  <option value="GOT">Göteborg Landvetter (GOT)</option>
-                  <option value="GVA">Geneva (GVA)</option>
-                  <option value="HAJ">Hannover (HAJ)</option>
-                  <option value="HAM">Hamburg (HAM)</option>
-                  <option value="HEL">Helsinki (HEL)</option>
-                  <option value="LJU">Ljubljana (LJU)</option>
-                  <option value="LUX">Luxembourg (LUX)</option>
-                  <option value="MMX">Malmö (MMX)</option>
-                  <option value="MUC">München (MUC)</option>
-                  <option value="NUE">Nürnberg (NUE)</option>
-                  <option value="OSL">Oslo (OSL)</option>
-                  <option value="STR">Stuttgart (STR)</option>
-                  <option value="SZG">Salzburg (SZG)</option>
-                  <option value="VIE">Vienna (VIE)</option>
-                  <option value="VXO">Växjö-Småland (VXO)</option>
-                  <option value="ZRH">Zürich (ZRH)</option>
-                </select>
-              </label>
-
-              <label class="field">
-                <span class="field-label">NISJA MË:</span>
-                <input name="departureDate" type="date" required />
-              </label>
-
-              <label class="field">
-                <span class="field-label">KTHIMI MË:</span>
-                <input name="returnDate" type="date" />
-              </label>
-
-              <label class="field">
-                <span class="field-label">TË RITUR:</span>
-                <input name="adults" type="number" min="1" max="5" value="1" />
-              </label>
-
-              <label class="field">
-                <span class="field-label">FËMIJË:</span>
-                <input name="children" type="number" min="0" max="5" value="0" />
-              </label>
-
-              <label class="field">
-                <span class="field-label">FOSHNJË:</span>
-                <input name="infants" type="number" min="0" max="5" value="0" />
-              </label>
-            </div>
-
-            <div class="booking-row">
-              <div class="booking-radios">
-                <label class="radio">
-                  <input type="radio" name="tripType" value="roundtrip" checked />
-                  <span>Nisje dhe Kthim</span>
-                </label>
-                <label class="radio">
-                  <input type="radio" name="tripType" value="oneway" />
-                  <span>Njëdrejtimshe</span>
-                </label>
-                <span class="eur-note">Të gjitha çmimet shfaqen dhe faturohen në EUR.</span>
-              </div>
-
-              <div class="booking-actions">
-                <label class="toggle">
-                  <input type="checkbox" name="openBrowser" <%= openBrowserOnSearch ? 'checked' : '' %> />
-                  <span>Open Chromium</span>
-                </label>
-                <input class="keep" name="keepBrowserOpenMs" type="number" min="0" max="120000" value="<%= keepBrowserOpenMs %>" title="Keep browser open (ms)" />
-                <button class="btn booking-btn" type="submit">🔍 KËRKONI FLUTURIMIN</button>
-              </div>
-            </div>
-
-            <div class="booking-foot">
-              <a class="link" href="<%= targetSiteHome %>" target="_blank" rel="noreferrer">Target site</a>
-              <span class="note">Prices are scraped live from the provider site.</span>
-            </div>
+    <!-- Below Fold -->
+    <div class="below-fold">
+      <!-- Call Center & My Booking -->
+      <section class="strip">
+        <div class="strip-card">
+          <h3 data-i18n="callcenter_title">Call Center</h3>
+          <p><strong data-i18n="callcenter_hours">Hours:</strong> 09:00 - 22:00 (Mon - Sun)</p>
+          <p><strong>Kosovo:</strong> +383 38 660 880 / +383 44 955 955</p>
+          <p><strong>Switzerland:</strong> +41 43 505 28 80</p>
+        </div>
+        <div class="strip-card">
+          <h3 data-i18n="mybooking_title">My Booking</h3>
+          <p class="muted" data-i18n="mybooking_desc">Retrieve your booking details</p>
+          <form class="mini-login" onsubmit="return false;">
+            <label>
+              <span data-i18n="mybooking_ref">Booking Reference</span>
+              <input type="text" placeholder="e.g. AK12345" />
+            </label>
+            <label>
+              <span data-i18n="mybooking_name">Last Name</span>
+              <input type="text" placeholder="Surname" />
+            </label>
+            <button class="btn secondary" type="submit" data-i18n="mybooking_btn">Find</button>
           </form>
         </div>
-      </div>
+      </section>
 
-      <div class="below-fold">
-        <section class="strip">
-          <div class="strip-card">
-            <h3>CALL CENTER</h3>
-            <p><strong>Info:</strong> 09:00 - 22:00</p>
-            <p><strong>Tel:</strong> +383 38 660 880 · +383 44 955 955 · +41 43 505 28 80</p>
-          </div>
-          <div class="strip-card">
-            <h3>LOGIN</h3>
-            <p class="muted">Hyrja / MY BOOKING:</p>
-            <form class="mini-login" onsubmit="return false;">
-              <label>
-                <span>Emri i përdoruesit:</span>
-                <input type="text" placeholder="Username" />
-              </label>
-              <label>
-                <span>Fjalëkalimi:</span>
-                <input type="password" placeholder="Password" />
-              </label>
-              <button class="btn secondary" type="submit">Login</button>
-            </form>
-          </div>
-        </section>
+      <!-- Features -->
+      <section class="features">
+        <div class="feature">
+          <h3 data-i18n="feature1_title">10+ Years Experience</h3>
+          <p data-i18n="feature1_desc">Trusted by thousands of travelers since 2014. Safe, reliable, and professional service you can count on.</p>
+        </div>
+        <div class="feature">
+          <h3 data-i18n="feature2_title">Easy Online Booking</h3>
+          <p data-i18n="feature2_desc">Book your flights in minutes with our simple booking system. Secure payments via Visa and Mastercard.</p>
+        </div>
+        <div class="feature">
+          <h3 data-i18n="feature3_title">24/7 Customer Support</h3>
+          <p data-i18n="feature3_desc">Our dedicated team is always ready to assist you with any questions or booking changes.</p>
+        </div>
+      </section>
 
-        <section class="features">
-          <div class="feature">
-            <h3>Përvojë 10 vjeqare</h3>
-            <p>Binduni ne sigurinë dhe përvojën tone.</p>
-          </div>
-          <div class="feature">
-            <h3>Rezervime Online</h3>
-            <p>Tani e tutje ju mund të rezervoni online.</p>
-          </div>
-          <div class="feature">
-            <h3>INFORMACIONE 24h</h3>
-            <p>Ne jemi me dëshirë në shërbimin tuaj.</p>
-          </div>
-        </section>
-
-        <section class="destinations">
-          <div class="section-head">
-            <h2>TOP DESTINACIONET</h2>
-            <p>Fluturime ne te gjitha destinacionet Europiane dhe Boterore.</p>
-          </div>
-          <div class="dest-grid">
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/basel.png" alt="Basel" />
-              <div class="dest-meta">
-                <div class="dest-route">BASEL - Prishtina</div>
-                <div class="dest-sub">OW/Person</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/prishtina.png" alt="Prishtina" />
-              <div class="dest-meta">
-                <div class="dest-route">Prishtina - BASEL</div>
-                <div class="dest-sub">OW/Person</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/dusseldorf.png" alt="Düsseldorf" />
-              <div class="dest-meta">
-                <div class="dest-route">Düsseldorf - Prishtina</div>
-                <div class="dest-sub">Rezervo</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/stuttgart.png" alt="Stuttgart" />
-              <div class="dest-meta">
-                <div class="dest-route">Stuttgart - Prishtina</div>
-                <div class="dest-sub">Rezervo</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/munchen.png" alt="München" />
-              <div class="dest-meta">
-                <div class="dest-route">München - Prishtina</div>
-                <div class="dest-sub">Rezervo</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/nuremberg.png" alt="Nürnberg" />
-              <div class="dest-meta">
-                <div class="dest-route">Nürnberg - Prishtina</div>
-                <div class="dest-sub">Rezervo</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/vaxjo.png" alt="Växjö-Småland" />
-              <div class="dest-meta">
-                <div class="dest-route">Växjö-Småland - Prishtina</div>
-                <div class="dest-sub">Rezervo</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/munster.png" alt="Münster" />
-              <div class="dest-meta">
-                <div class="dest-route">Münster - Prishtina</div>
-                <div class="dest-sub">Rezervo</div>
-              </div>
-            </a>
-            <a class="dest" href="#">
-              <img src="/images/top-destinations/bremen.png" alt="Bremen" />
-              <div class="dest-meta">
-                <div class="dest-route">Bremen - Prishtina</div>
-                <div class="dest-sub">Rezervo</div>
-              </div>
-            </a>
-          </div>
-        </section>
-
-        <footer class="site-footer">
-          <div class="footer-grid">
-            <div>
-              <h4>Contact-Prishtina</h4>
-              <p>Bulevardi Bill Klinton 12, 10000 Prishtinë</p>
-              <p><a href="tel:+38344955955">+383 44 955 955</a> · <a href="tel:+41435052880">+41 43 505 28 80</a></p>
-              <p><a href="mailto:info@airkosova.net">info@airkosova.net</a></p>
+      <!-- Destinations -->
+      <section class="destinations">
+        <div class="section-head">
+          <h2 data-i18n="destinations_title">Popular Destinations</h2>
+          <p data-i18n="destinations_desc">Direct flights to the most popular European cities</p>
+        </div>
+        <div class="dest-grid">
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/basel.png" alt="Basel" />
+            <div class="dest-meta">
+              <div class="dest-route">Basel → Prishtina</div>
             </div>
-            <div>
-              <h4>Contact-London</h4>
-              <p>71-75 Shelton Street, Covent Garden, London, WC2H 9JQ UK</p>
-              <p><a href="mailto:info@airkosova.net">info@airkosova.net</a></p>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/prishtina.png" alt="Prishtina" />
+            <div class="dest-meta">
+              <div class="dest-route">Prishtina → Basel</div>
             </div>
-            <div>
-              <h4>Gjuhet</h4>
-              <p>AL · DE · EN</p>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/dusseldorf.png" alt="Düsseldorf" />
+            <div class="dest-meta">
+              <div class="dest-route">Düsseldorf → Prishtina</div>
             </div>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/stuttgart.png" alt="Stuttgart" />
+            <div class="dest-meta">
+              <div class="dest-route">Stuttgart → Prishtina</div>
+            </div>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/munchen.png" alt="München" />
+            <div class="dest-meta">
+              <div class="dest-route">München → Prishtina</div>
+            </div>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/nuremberg.png" alt="Nürnberg" />
+            <div class="dest-meta">
+              <div class="dest-route">Nürnberg → Prishtina</div>
+            </div>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/vaxjo.png" alt="Växjö" />
+            <div class="dest-meta">
+              <div class="dest-route">Växjö → Prishtina</div>
+            </div>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/munster.png" alt="Münster" />
+            <div class="dest-meta">
+              <div class="dest-route">Münster → Prishtina</div>
+            </div>
+          </a>
+          <a class="dest" href="#">
+            <img src="/images/top-destinations/bremen.png" alt="Bremen" />
+            <div class="dest-meta">
+              <div class="dest-route">Bremen → Prishtina</div>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="site-footer">
+        <div class="footer-grid">
+          <div>
+            <h4 data-i18n="footer_prishtina">Prishtina Office</h4>
+            <p>Bulevardi Bill Klinton 12<br/>10000 Prishtinë, Kosovo</p>
+            <p><a href="tel:+38344955955">+383 44 955 955</a></p>
+            <p><a href="mailto:info@airkosova.net">info@airkosova.net</a></p>
           </div>
-          <div class="footer-bottom">
-            <span>© <%= new Date().getFullYear() %> - All Rights Reserved by O.T.A Airkosova Network SH.P.K.</span>
+          <div>
+            <h4 data-i18n="footer_london">London Office</h4>
+            <p>71-75 Shelton Street<br/>Covent Garden, London WC2H 9JQ</p>
+            <p><a href="mailto:info@airkosova.net">info@airkosova.net</a></p>
           </div>
-        </footer>
-      </div>
+          <div>
+            <h4 data-i18n="footer_payment">Payment Methods</h4>
+            <p>Visa • Mastercard • Bank Transfer</p>
+            <h4 style="margin-top: 20px;" data-i18n="footer_languages">Languages</h4>
+            <p>Shqip • Deutsch • English</p>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© <%= new Date().getFullYear() %> Airkosova Network SH.P.K. All Rights Reserved.</span>
+        </div>
+      </footer>
     </div>
   </div>
 
+  <!-- WhatsApp Widget -->
+  <a href="https://web.whatsapp.com/send?phone=+38344955955" target="_blank" rel="noopener noreferrer" class="whatsapp-widget" title="Chat with us on WhatsApp">
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  </a>
+
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <script>
-    // Airport label map (code -> display label). Keep diacritics correct.
+    // Translations
+    const translations = {
+      en: {
+        nav_book: 'Book',
+        nav_info: 'Information',
+        nav_contact: 'Contact',
+        nav_booking: 'My Booking',
+        booking_title: 'Book Your Flight',
+        tab_flights: 'Flights',
+        tab_login: 'Login',
+        field_from: 'From',
+        field_to: 'To',
+        field_departure: 'Departure',
+        field_return: 'Return',
+        field_adults: 'Adults',
+        field_children: 'Children (2-11)',
+        field_infants: 'Infants (0-2)',
+        trip_roundtrip: 'Round Trip',
+        trip_oneway: 'One Way',
+        prices_eur: 'All prices in EUR',
+        btn_search: 'Search Flights',
+        error_passengers: 'Maximum 5 passengers allowed per booking.',
+        login_title: 'Customer Login',
+        login_subtitle: 'Sign in to manage your bookings',
+        login_email: 'Email',
+        login_password: 'Password',
+        login_btn: 'Sign In',
+        login_or: 'or',
+        login_no_account: "Don't have an account?",
+        login_register: 'Register',
+        login_forgot: 'Forgot password?',
+        register_title: 'Create Account',
+        register_subtitle: 'Sign up to book and manage flights',
+        register_email: 'Email',
+        register_password: 'Password',
+        register_confirm: 'Confirm Password',
+        register_btn: 'Create Account',
+        register_have_account: 'Already have an account?',
+        register_login: 'Sign In',
+        forgot_title: 'Reset Password',
+        forgot_subtitle: 'Enter your email to receive a reset link',
+        forgot_email: 'Email',
+        forgot_btn: 'Send Reset Link',
+        forgot_back: '← Back to Sign In',
+        welcome_title: 'Welcome back!',
+        logout_btn: 'Sign Out',
+        callcenter_title: 'Call Center',
+        callcenter_hours: 'Hours:',
+        mybooking_title: 'My Booking',
+        mybooking_desc: 'Retrieve your booking details',
+        mybooking_ref: 'Booking Reference',
+        mybooking_name: 'Last Name',
+        mybooking_btn: 'Find',
+        feature1_title: '10+ Years Experience',
+        feature1_desc: 'Trusted by thousands of travelers since 2014. Safe, reliable, and professional service you can count on.',
+        feature2_title: 'Easy Online Booking',
+        feature2_desc: 'Book your flights in minutes with our simple booking system. Secure payments via Visa and Mastercard.',
+        feature3_title: '24/7 Customer Support',
+        feature3_desc: 'Our dedicated team is always ready to assist you with any questions or booking changes.',
+        destinations_title: 'Popular Destinations',
+        destinations_desc: 'Direct flights to the most popular European cities',
+        footer_prishtina: 'Prishtina Office',
+        footer_london: 'London Office',
+        footer_payment: 'Payment Methods',
+        footer_languages: 'Languages'
+      },
+      sq: {
+        nav_book: 'Rezervo',
+        nav_info: 'Informacione',
+        nav_contact: 'Kontakti',
+        nav_booking: 'Rezervimi Im',
+        booking_title: 'Rezervo Fluturimin',
+        tab_flights: 'Fluturimet',
+        tab_login: 'Hyrja',
+        field_from: 'Nga',
+        field_to: 'Për',
+        field_departure: 'Nisja',
+        field_return: 'Kthimi',
+        field_adults: 'Të rritur',
+        field_children: 'Fëmijë (2-11)',
+        field_infants: 'Foshnja (0-2)',
+        trip_roundtrip: 'Vajtje-Ardhje',
+        trip_oneway: 'Vetëm Vajtje',
+        prices_eur: 'Të gjitha çmimet në EUR',
+        btn_search: 'Kërko Fluturime',
+        error_passengers: 'Maksimumi 5 pasagjerë për rezervim.',
+        login_title: 'Hyrja e Klientit',
+        login_subtitle: 'Hyni për të menaxhuar rezervimet tuaja',
+        login_email: 'Email',
+        login_password: 'Fjalëkalimi',
+        login_btn: 'Hyr',
+        login_or: 'ose',
+        login_no_account: 'Nuk keni llogari?',
+        login_register: 'Regjistrohu',
+        login_forgot: 'Keni harruar fjalëkalimin?',
+        register_title: 'Krijo Llogari',
+        register_subtitle: 'Regjistrohu për të rezervuar dhe menaxhuar fluturime',
+        register_email: 'Email',
+        register_password: 'Fjalëkalimi',
+        register_confirm: 'Konfirmo Fjalëkalimin',
+        register_btn: 'Krijo Llogari',
+        register_have_account: 'Keni tashmë një llogari?',
+        register_login: 'Hyr',
+        forgot_title: 'Rivendos Fjalëkalimin',
+        forgot_subtitle: 'Shkruani email-in tuaj për të marrë linkun e rivendosjes',
+        forgot_email: 'Email',
+        forgot_btn: 'Dërgo Linkun',
+        forgot_back: '← Kthehu te Hyrja',
+        welcome_title: 'Mirë se erdhe!',
+        logout_btn: 'Dil',
+        callcenter_title: 'Qendra e Thirrjeve',
+        callcenter_hours: 'Orari:',
+        mybooking_title: 'Rezervimi Im',
+        mybooking_desc: 'Gjeni detajet e rezervimit tuaj',
+        mybooking_ref: 'Numri i Rezervimit',
+        mybooking_name: 'Mbiemri',
+        mybooking_btn: 'Gjej',
+        feature1_title: '10+ Vite Përvojë',
+        feature1_desc: 'I besuar nga mijëra udhëtarë që nga 2014. Shërbim i sigurt, i besueshëm dhe profesional.',
+        feature2_title: 'Rezervim i Lehtë Online',
+        feature2_desc: 'Rezervoni fluturimet tuaja në minuta me sistemin tonë të thjeshtë. Pagesa të sigurta me Visa dhe Mastercard.',
+        feature3_title: 'Mbështetje 24/7',
+        feature3_desc: 'Ekipi ynë i dedikuar është gjithmonë gati t\'ju ndihmojë me çdo pyetje ose ndryshim rezervimi.',
+        destinations_title: 'Destinacionet Popullore',
+        destinations_desc: 'Fluturime direkte në qytetet më të njohura Europiane',
+        footer_prishtina: 'Zyra në Prishtinë',
+        footer_london: 'Zyra në Londër',
+        footer_payment: 'Metodat e Pagesës',
+        footer_languages: 'Gjuhët'
+      },
+      de: {
+        nav_book: 'Buchen',
+        nav_info: 'Information',
+        nav_contact: 'Kontakt',
+        nav_booking: 'Meine Buchung',
+        booking_title: 'Flug Buchen',
+        tab_flights: 'Flüge',
+        tab_login: 'Anmelden',
+        field_from: 'Von',
+        field_to: 'Nach',
+        field_departure: 'Abflug',
+        field_return: 'Rückflug',
+        field_adults: 'Erwachsene',
+        field_children: 'Kinder (2-11)',
+        field_infants: 'Babys (0-2)',
+        trip_roundtrip: 'Hin und Zurück',
+        trip_oneway: 'Nur Hinflug',
+        prices_eur: 'Alle Preise in EUR',
+        btn_search: 'Flüge Suchen',
+        error_passengers: 'Maximal 5 Passagiere pro Buchung erlaubt.',
+        login_title: 'Kunden-Login',
+        login_subtitle: 'Melden Sie sich an, um Ihre Buchungen zu verwalten',
+        login_email: 'E-Mail',
+        login_password: 'Passwort',
+        login_btn: 'Anmelden',
+        login_or: 'oder',
+        login_no_account: 'Noch kein Konto?',
+        login_register: 'Registrieren',
+        login_forgot: 'Passwort vergessen?',
+        register_title: 'Konto erstellen',
+        register_subtitle: 'Registrieren Sie sich, um Flüge zu buchen',
+        register_email: 'E-Mail',
+        register_password: 'Passwort',
+        register_confirm: 'Passwort bestätigen',
+        register_btn: 'Konto erstellen',
+        register_have_account: 'Haben Sie bereits ein Konto?',
+        register_login: 'Anmelden',
+        forgot_title: 'Passwort zurücksetzen',
+        forgot_subtitle: 'Geben Sie Ihre E-Mail ein, um einen Reset-Link zu erhalten',
+        forgot_email: 'E-Mail',
+        forgot_btn: 'Link senden',
+        forgot_back: '← Zurück zur Anmeldung',
+        welcome_title: 'Willkommen zurück!',
+        logout_btn: 'Abmelden',
+        callcenter_title: 'Callcenter',
+        callcenter_hours: 'Öffnungszeiten:',
+        mybooking_title: 'Meine Buchung',
+        mybooking_desc: 'Buchungsdetails abrufen',
+        mybooking_ref: 'Buchungsnummer',
+        mybooking_name: 'Nachname',
+        mybooking_btn: 'Suchen',
+        feature1_title: '10+ Jahre Erfahrung',
+        feature1_desc: 'Von tausenden Reisenden seit 2014 vertraut. Sicherer, zuverlässiger und professioneller Service.',
+        feature2_title: 'Einfache Online-Buchung',
+        feature2_desc: 'Buchen Sie Ihre Flüge in Minuten mit unserem einfachen Buchungssystem. Sichere Zahlung mit Visa und Mastercard.',
+        feature3_title: '24/7 Kundensupport',
+        feature3_desc: 'Unser engagiertes Team ist immer bereit, Ihnen bei Fragen oder Buchungsänderungen zu helfen.',
+        destinations_title: 'Beliebte Reiseziele',
+        destinations_desc: 'Direktflüge zu den beliebtesten europäischen Städten',
+        footer_prishtina: 'Büro Prishtina',
+        footer_london: 'Büro London',
+        footer_payment: 'Zahlungsmethoden',
+        footer_languages: 'Sprachen'
+      }
+    };
+
+    let currentLang = localStorage.getItem('ak_lang') || 'en';
+
+    function applyTranslations(lang) {
+      const t = translations[lang] || translations.en;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) {
+          el.textContent = t[key];
+        }
+      });
+      // Update active lang button
+      document.querySelectorAll('.topbar-lang').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+      });
+      localStorage.setItem('ak_lang', lang);
+      currentLang = lang;
+    }
+
+    // Language switcher
+    document.querySelectorAll('.topbar-lang').forEach(btn => {
+      btn.addEventListener('click', () => {
+        applyTranslations(btn.dataset.lang);
+      });
+    });
+
+    // Apply saved language on load
+    applyTranslations(currentLang);
+
+    // Tab switching
+    const tabFlights = document.getElementById('tabFlights');
+    const tabLogin = document.getElementById('tabLogin');
+    const searchForm = document.getElementById('searchForm');
+    const loginForm = document.getElementById('loginFormContainer');
+
+    tabFlights.addEventListener('click', () => {
+      tabFlights.classList.add('active');
+      tabLogin.classList.remove('active');
+      searchForm.style.display = '';
+      loginForm.style.display = 'none';
+    });
+
+    tabLogin.addEventListener('click', () => {
+      tabLogin.classList.add('active');
+      tabFlights.classList.remove('active');
+      searchForm.style.display = 'none';
+      loginForm.style.display = '';
+    });
+
+    // Passenger validation (max 5)
+    const adultsInput = document.querySelector('input[name="adults"]');
+    const childrenInput = document.querySelector('input[name="children"]');
+    const infantsInput = document.querySelector('input[name="infants"]');
+    const searchBtn = document.getElementById('searchBtn');
+    const passengerError = document.getElementById('passengerError');
+
+    function validatePassengers() {
+      const total = parseInt(adultsInput.value || 0) + parseInt(childrenInput.value || 0) + parseInt(infantsInput.value || 0);
+      if (total > 5) {
+        searchBtn.disabled = true;
+        passengerError.style.display = 'block';
+      } else {
+        searchBtn.disabled = false;
+        passengerError.style.display = 'none';
+      }
+    }
+
+    adultsInput.addEventListener('input', validatePassengers);
+    childrenInput.addEventListener('input', validatePassengers);
+    infantsInput.addEventListener('input', validatePassengers);
+
     window.AK_AIRPORTS = {
       PRN: 'Prishtina (PRN)',
       ARN: 'Stockholm (ARN)',
@@ -356,22 +710,212 @@
       ZRH: 'Zürich (ZRH)'
     };
 
-    // From -> allowed destinations (by airport code)
-    window.AK_ROUTES = {
-      // Prishtina
-      PRN: ['ARN','BER','BGY','BRE','BRU','BSL','CGN','DTM','DUS','FMM','FMO','GOT','GVA','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','STR','SZG','VIE','VXO','ZRH'],
+    // Auth form switching
+    const loginFormInner = document.querySelector('#loginFormContainer > .login-form-inner:first-child');
+    const registerFormContainer = document.getElementById('registerFormContainer');
+    const forgotFormContainer = document.getElementById('forgotFormContainer');
+    const loggedInContainer = document.getElementById('loggedInContainer');
 
-      // Stockholm / Berlin / Milano / Bremen / Brussels
+    document.getElementById('showRegister')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginFormInner.style.display = 'none';
+      registerFormContainer.style.display = 'block';
+      forgotFormContainer.style.display = 'none';
+      applyTranslations(currentLang);
+    });
+
+    document.getElementById('showLogin')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginFormInner.style.display = 'block';
+      registerFormContainer.style.display = 'none';
+      forgotFormContainer.style.display = 'none';
+      applyTranslations(currentLang);
+    });
+
+    document.getElementById('showForgotPassword')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginFormInner.style.display = 'none';
+      registerFormContainer.style.display = 'none';
+      forgotFormContainer.style.display = 'block';
+      applyTranslations(currentLang);
+    });
+
+    document.getElementById('backToLogin')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginFormInner.style.display = 'block';
+      registerFormContainer.style.display = 'none';
+      forgotFormContainer.style.display = 'none';
+      applyTranslations(currentLang);
+    });
+
+    // Supabase Auth (will be enabled when credentials are provided)
+    const SUPABASE_URL = '<%= typeof supabaseUrl !== "undefined" ? supabaseUrl : "" %>';
+    const SUPABASE_ANON_KEY = '<%= typeof supabaseAnonKey !== "undefined" ? supabaseAnonKey : "" %>';
+    let supabase = null;
+
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      initAuth();
+    }
+
+    async function initAuth() {
+      if (!supabase) return;
+      
+      // Check if user is already logged in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        showLoggedInState(user);
+      }
+
+      // Listen for auth state changes
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          showLoggedInState(session.user);
+        } else {
+          showLoggedOutState();
+        }
+      });
+    }
+
+    function showLoggedInState(user) {
+      loginFormInner.style.display = 'none';
+      registerFormContainer.style.display = 'none';
+      forgotFormContainer.style.display = 'none';
+      loggedInContainer.style.display = 'block';
+      
+      document.getElementById('userEmail').textContent = user.email;
+      document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+      applyTranslations(currentLang);
+    }
+
+    function showLoggedOutState() {
+      loginFormInner.style.display = 'block';
+      registerFormContainer.style.display = 'none';
+      forgotFormContainer.style.display = 'none';
+      loggedInContainer.style.display = 'none';
+      applyTranslations(currentLang);
+    }
+
+    // Login form submit
+    document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const errorEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginSubmitBtn');
+
+      if (!supabase) {
+        errorEl.textContent = 'Authentication not configured. Please contact support.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+      errorEl.style.display = 'none';
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        errorEl.textContent = error.message;
+        errorEl.style.display = 'block';
+      }
+      
+      btn.disabled = false;
+      btn.textContent = translations[currentLang]?.login_btn || 'Sign In';
+    });
+
+    // Register form submit
+    document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('registerEmail').value;
+      const password = document.getElementById('registerPassword').value;
+      const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+      const errorEl = document.getElementById('registerError');
+      const successEl = document.getElementById('registerSuccess');
+      const btn = document.getElementById('registerSubmitBtn');
+
+      errorEl.style.display = 'none';
+      successEl.style.display = 'none';
+
+      if (password !== passwordConfirm) {
+        errorEl.textContent = 'Passwords do not match';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (!supabase) {
+        errorEl.textContent = 'Authentication not configured. Please contact support.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+
+      const { error } = await supabase.auth.signUp({ email, password });
+      
+      if (error) {
+        errorEl.textContent = error.message;
+        errorEl.style.display = 'block';
+      } else {
+        successEl.textContent = 'Account created! Please check your email to confirm.';
+        successEl.style.display = 'block';
+        document.getElementById('registerForm').reset();
+      }
+      
+      btn.disabled = false;
+      btn.textContent = translations[currentLang]?.register_btn || 'Create Account';
+    });
+
+    // Forgot password form submit
+    document.getElementById('forgotForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('forgotEmail').value;
+      const errorEl = document.getElementById('forgotError');
+      const successEl = document.getElementById('forgotSuccess');
+      const btn = document.getElementById('forgotSubmitBtn');
+
+      errorEl.style.display = 'none';
+      successEl.style.display = 'none';
+
+      if (!supabase) {
+        errorEl.textContent = 'Authentication not configured. Please contact support.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      
+      if (error) {
+        errorEl.textContent = error.message;
+        errorEl.style.display = 'block';
+      } else {
+        successEl.textContent = 'Reset link sent! Check your email.';
+        successEl.style.display = 'block';
+      }
+      
+      btn.disabled = false;
+      btn.textContent = translations[currentLang]?.forgot_btn || 'Send Reset Link';
+    });
+
+    // Logout
+    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+      if (!supabase) return;
+      await supabase.auth.signOut();
+    });
+
+    window.AK_ROUTES = {
+      PRN: ['ARN','BER','BGY','BRE','BRU','BSL','CGN','DTM','DUS','FMM','FMO','GOT','GVA','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','STR','SZG','VIE','VXO','ZRH'],
       ARN: ['BSL','GVA','PRN','ZRH'],
       BER: ['BSL','GVA','PRN','ZRH'],
       BGY: ['BSL','GVA','PRN','ZRH'],
       BRE: ['BSL','GVA','PRN','ZRH'],
       BRU: ['BSL','GVA','PRN','ZRH'],
-
-      // Basel (as provided)
       BSL: ['ARN','BER','BGY','BRE','BRU','CGN','DTM','DUS','FMM','FMO','GOT','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','PRN','STR','SZG','VIE','VXO'],
-
-      // Köln/Bonn / Dortmund / Düsseldorf / Memmingen / Münster-Osnabrück / Göteborg / Hannover / Hamburg / Helsinki / Ljubljana / Luxembourg / Malmö / München / Nürnberg / Oslo / Stuttgart / Salzburg / Vienna / Växjö-Småland
       CGN: ['BSL','GVA','PRN','ZRH'],
       DTM: ['BSL','GVA','PRN','ZRH'],
       DUS: ['BSL','GVA','PRN','ZRH'],
@@ -391,15 +935,9 @@
       SZG: ['BSL','GVA','PRN','ZRH'],
       VIE: ['BSL','GVA','PRN','ZRH'],
       VXO: ['BSL','GVA','PRN','ZRH'],
-
-      // Geneva (as provided)
       GVA: ['ARN','BER','BGY','BRE','BRU','CGN','DTM','DUS','FMM','FMO','GOT','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','PRN','STR','SZG','VIE','VXO'],
-
-      // Zürich (as provided)
       ZRH: ['ARN','BER','BGY','BRE','BRU','CGN','DTM','DUS','FMM','FMO','GOT','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','PRN','STR','SZG','VIE','VXO']
     };
   </script>
 </body>
 </html>
-
-
