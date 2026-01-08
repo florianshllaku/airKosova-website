@@ -67,24 +67,43 @@ function makeReportHtml({ runMeta, records, summary }) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AirKosova Load Test Report ${runMeta.runId}</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; color: #111; }
-    .muted { color: #666; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 14px; }
+    :root{
+      --bg:#0b1020;
+      --card:#0f1730;
+      --card2:#101a36;
+      --text:#e9eefc;
+      --muted:#9aa6c7;
+      --line:rgba(255,255,255,0.10);
+      --ok:#25d07d;
+      --bad:#ff4d6d;
+      --accent:#6ea8fe;
+      --pill:rgba(255,255,255,0.10);
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 18px; color: var(--text); background: radial-gradient(1200px 600px at 20% 0%, #16214a 0%, var(--bg) 55%); }
+    a { color: var(--accent); }
+    .muted { color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: linear-gradient(180deg, var(--card) 0%, var(--card2) 100%); box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
     .kvs { display: grid; grid-template-columns: 200px 1fr; gap: 8px; }
-    .k { color:#444; }
+    .k { color: var(--muted); }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top; }
-    th { text-align: left; background: #fafafa; position: sticky; top: 0; }
-    .ok { color: #0a7a2f; font-weight: 600; }
-    .bad { color: #b00020; font-weight: 600; }
-    .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background:#f2f2f2; font-size: 12px; margin-right: 6px; }
+    th, td { padding: 9px; border-bottom: 1px solid var(--line); font-size: 12px; vertical-align: top; }
+    th { text-align: left; background: rgba(255,255,255,0.04); position: sticky; top: 0; backdrop-filter: blur(6px); }
+    .ok { color: var(--ok); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+    .pill { display:inline-block; padding: 4px 10px; border-radius: 999px; background: var(--pill); font-size: 12px; margin-right: 6px; border: 1px solid var(--line); }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .title { display:flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .title h2 { margin: 0; }
+    .topline { margin-top: 6px; }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } .kvs{grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <h2>AirKosova Load Test Report</h2>
-  <div class="muted">Run: <span class="mono">${runMeta.runId}</span> • Generated: <span class="mono">${nowIso()}</span></div>
+  <div class="title">
+    <h2>AirKosova Load Test Report</h2>
+    <div class="muted">Run: <span class="mono">${runMeta.runId}</span> • Generated: <span class="mono">${nowIso()}</span></div>
+  </div>
 
   <div style="margin-top:14px;" class="grid">
     <div class="card">
@@ -114,6 +133,24 @@ function makeReportHtml({ runMeta, records, summary }) {
     </div>
   </div>
 
+  <div style="margin-top:14px;" class="grid">
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:8px;">Pricing (min price on requested date)</div>
+      <div class="kvs">
+        <div class="k">Outbound min (mean)</div><div><strong>${summary?.prices?.outboundMinPrice?.mean != null ? summary.prices.outboundMinPrice.mean.toFixed(2) : '—'}</strong></div>
+        <div class="k">Outbound min (min/max)</div><div><strong>${summary?.prices?.outboundMinPrice?.min != null ? summary.prices.outboundMinPrice.min.toFixed(2) : '—'}</strong> / <strong>${summary?.prices?.outboundMinPrice?.max != null ? summary.prices.outboundMinPrice.max.toFixed(2) : '—'}</strong></div>
+        <div class="k">Return min (mean)</div><div><strong>${summary?.prices?.returnMinPrice?.mean != null ? summary.prices.returnMinPrice.mean.toFixed(2) : '—'}</strong></div>
+        <div class="k">Return min (min/max)</div><div><strong>${summary?.prices?.returnMinPrice?.min != null ? summary.prices.returnMinPrice.min.toFixed(2) : '—'}</strong> / <strong>${summary?.prices?.returnMinPrice?.max != null ? summary.prices.returnMinPrice.max.toFixed(2) : '—'}</strong></div>
+      </div>
+      <div class="muted" style="margin-top:8px;">Prices are taken from the scraped flights for the exact requested date, using the minimum numeric price found.</div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:8px;">Price over time (min outbound)</div>
+      <canvas id="priceChart" height="140"></canvas>
+    </div>
+  </div>
+
   <div style="margin-top:16px;" class="grid">
     <div class="card">
       <div style="font-weight:600;margin-bottom:8px;">Latency over time (ms)</div>
@@ -138,6 +175,7 @@ function makeReportHtml({ runMeta, records, summary }) {
             <th>route</th>
             <th>dates</th>
             <th>pax</th>
+            <th>prices</th>
             <th>pool</th>
             <th class="mono">error</th>
           </tr>
@@ -160,6 +198,9 @@ function makeReportHtml({ runMeta, records, summary }) {
       const route = (r.request?.departure || '—') + ' → ' + (r.request?.destination || '—');
       const dates = (r.request?.departureDate || '—') + (r.request?.returnDate ? (' → ' + r.request.returnDate) : '');
       const pax = 'A' + (r.request?.adults ?? '—') + ' C' + (r.request?.children ?? '—') + ' I' + (r.request?.infants ?? '—');
+      const outP = r.prices?.outbound?.minPrice != null ? (r.prices.outbound.currency ? (r.prices.outbound.currency + ' ') : '') + r.prices.outbound.minPrice.toFixed(2) : '—';
+      const retP = r.prices?.return?.minPrice != null ? (r.prices.return.currency ? (r.prices.return.currency + ' ') : '') + r.prices.return.minPrice.toFixed(2) : '—';
+      const prices = (r.request?.tripType === 'oneway') ? ('out ' + outP) : ('out ' + outP + '<br/>ret ' + retP);
       const pool = r.pool ? ('B' + r.pool.browserIndex + '/T' + r.pool.tabIndex) : '—';
       tr.innerHTML = \`
         <td class="mono">\${i + 1}</td>
@@ -168,6 +209,7 @@ function makeReportHtml({ runMeta, records, summary }) {
         <td class="mono">\${route}</td>
         <td class="mono">\${dates}</td>
         <td class="mono">\${pax}</td>
+        <td class="mono">\${prices}</td>
         <td class="mono">\${pool}</td>
         <td class="mono">\${(r.error || '').slice(0, 140)}</td>
       \`;
@@ -203,6 +245,14 @@ function makeReportHtml({ runMeta, records, summary }) {
       type: 'bar',
       data: { labels: binLabels, datasets: [{ label: 'count', data: counts, backgroundColor: '#ff7f0e' }] },
       options: { responsive: true, plugins: { legend: { display: true } }, scales: { x: { ticks: { maxRotation: 90, minRotation: 60 } } } }
+    });
+
+    // Price chart (min outbound price on requested date)
+    const outMin = records.map((r) => (r.prices?.outbound?.minPrice ?? null));
+    new Chart(document.getElementById('priceChart'), {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'outbound min price', data: outMin, borderColor: '#6ea8fe', tension: 0.2, pointRadius: 0 }] },
+      options: { responsive: true, plugins: { legend: { display: true } }, scales: { x: { title: { display: true, text: 'request #' } }, y: { title: { display: true, text: 'price' } } } }
     });
   </script>
 </body>
@@ -244,9 +294,13 @@ function randomSearchPayload() {
     returnDate = isoDateFromDate(ret);
   }
 
-  const adults = randInt(1, 5);
-  const children = randInt(0, 2);
-  const infants = Math.min(adults, randInt(0, 1));
+  // Passenger constraints: total pax <= 5, infants <= adults.
+  const totalPax = randInt(1, 5);
+  const adults = randInt(1, totalPax);
+  let remaining = totalPax - adults;
+  const children = remaining > 0 ? randInt(0, remaining) : 0;
+  remaining = remaining - children;
+  const infants = remaining > 0 ? randInt(0, Math.min(adults, remaining)) : 0;
 
   return {
     departure,
@@ -259,6 +313,36 @@ function randomSearchPayload() {
     infants,
     openBrowser: false,
     keepBrowserOpenMs: 0
+  };
+}
+
+function extractPriceInfoForDate(group, dateKey) {
+  const byDate = group?.byDate || {};
+  const flights = Array.isArray(byDate?.[dateKey]) ? byDate[dateKey] : [];
+  let min = null;
+  let currency = null;
+  let withPrice = 0;
+  let soldOut = 0;
+
+  for (const f of flights) {
+    if (!f) continue;
+    if (f.soldOut) soldOut++;
+    const n = f.price != null ? parseFloat(String(f.price).replace(',', '.')) : NaN;
+    if (!Number.isFinite(n)) continue;
+    withPrice++;
+    if (min === null || n < min) {
+      min = n;
+      currency = f.currency || currency;
+    }
+  }
+
+  return {
+    dateKey,
+    flightsCount: flights.length,
+    withPriceCount: withPrice,
+    soldOutCount: soldOut,
+    minPrice: min,
+    currency
   };
 }
 
@@ -320,7 +404,8 @@ async function main() {
       error: null,
       request: payload,
       pool: null,
-      serverTimingsMs: null
+      serverTimingsMs: null,
+      prices: null
     };
 
     try {
@@ -337,6 +422,12 @@ async function main() {
       rec.ok = true;
       rec.pool = json?.data?.meta?.pool || null;
       rec.serverTimingsMs = json?.data?.meta?.timingsMs || null;
+      // Pricing: record min prices for the requested dates (if present in the scraped byDate map)
+      const out = json?.data?.flights?.outbound;
+      const ret = json?.data?.flights?.return;
+      const outInfo = extractPriceInfoForDate(out, payload.departureDate);
+      const retInfo = payload.tripType === 'oneway' ? null : extractPriceInfoForDate(ret, payload.returnDate);
+      rec.prices = { outbound: outInfo, return: retInfo };
     } catch (e) {
       rec.error = e?.message || String(e);
     } finally {
@@ -383,6 +474,10 @@ async function main() {
   const avgStab = sumField(records, (r) => r.serverTimingsMs?.stabilizeMs);
   const avgScrape = sumField(records, (r) => r.serverTimingsMs?.scrapeEvalMs);
   const avgReset = sumField(records, (r) => r.serverTimingsMs?.resetHomeMs);
+  const outMinPrices = records.map((r) => (r.prices?.outbound?.minPrice ?? null)).filter((x) => Number.isFinite(x));
+  const retMinPrices = records.map((r) => (r.prices?.return?.minPrice ?? null)).filter((x) => Number.isFinite(x));
+  const outPriceStats = stats(outMinPrices);
+  const retPriceStats = stats(retMinPrices);
 
   const summary = {
     runId: id,
@@ -405,6 +500,10 @@ async function main() {
       stabilizeMs: avgStab.mean,
       scrapeEvalMs: avgScrape.mean,
       resetHomeMs: avgReset.mean
+    },
+    prices: {
+      outboundMinPrice: outPriceStats,
+      returnMinPrice: retPriceStats
     }
   };
 
