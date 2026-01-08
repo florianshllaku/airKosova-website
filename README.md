@@ -39,7 +39,8 @@ By default on Windows the app may open a visible browser window during scraping 
 - `SCRAPER_FORCE_HEADLESS=true` (force headless even if UI checkbox is enabled)
 - `SCRAPER_BLOCK_RESOURCES=true` (blocks images/fonts/media)
 - `SCRAPER_REUSE_BROWSER=true` (reuses a single Chromium instance across searches)
-- `SCRAPER_KEEP_READY=true` + `SCRAPER_REUSE_PAGE=true` (keeps one warm page open and ready for the next search)
+- `SCRAPER_KEEP_READY=true` (resets tabs back to the provider homepage after each scrape)
+- `SCRAPER_POOL_BROWSERS=2` + `SCRAPER_POOL_TABS_PER_BROWSER=8` (enables parallel scraping; total concurrency = 16)
 
 
 

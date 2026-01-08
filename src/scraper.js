@@ -12,63 +12,131 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-let _sharedBrowser = null;
-let _sharedBrowserHeadless = null;
-let _sharedBrowserLaunching = null;
-let _sharedContext = null;
-let _sharedPage = null;
-let _sharedContextConfigured = false;
-let _sharedSearchLock = Promise.resolve();
+// ==========================================================
+// Playwright pool: N browsers × M tabs (pages) each
+// ==========================================================
+let _pool = null;
+let _poolLaunching = null;
 
-async function getBrowser({ headless, launchArgs }) {
-  const reuseBrowser = parseBool(process.env.SCRAPER_REUSE_BROWSER, true);
-  if (!reuseBrowser) {
-    return await chromium.launch({ headless, args: launchArgs });
+function clampEnvInt(val, min, max, fallback) {
+  const n = parseInt(String(val ?? ''), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+async function closePool() {
+  const p = _pool;
+  _pool = null;
+  _poolLaunching = null;
+  if (!p) return;
+  for (const b of (p.browsers || [])) {
+    try { await b.browser?.close(); } catch (_) {}
   }
+}
 
-  // If headless mode changes between requests, don't reuse (headed <-> headless).
-  if (_sharedBrowser && _sharedBrowserHeadless === headless) return _sharedBrowser;
+// Best-effort cleanup on shutdown.
+process.once('SIGINT', () => { closePool().finally(() => process.exit(0)); });
+process.once('SIGTERM', () => { closePool().finally(() => process.exit(0)); });
+process.once('beforeExit', () => { closePool().catch(() => {}); });
 
-  // Close an existing browser if it's in a different mode.
-  if (_sharedBrowser && _sharedBrowserHeadless !== headless) {
-    try { await _sharedBrowser.close(); } catch (_) {}
-    _sharedBrowser = null;
-    _sharedBrowserHeadless = null;
-    _sharedContext = null;
-    _sharedPage = null;
-    _sharedContextConfigured = false;
-  }
+async function ensurePool({
+  headless,
+  launchArgs,
+  viewport,
+  targetHome,
+  blockResources,
+  fastMode
+}) {
+  const browsersCount = clampEnvInt(process.env.SCRAPER_POOL_BROWSERS, 1, 8, 2);
+  const tabsPerBrowser = clampEnvInt(process.env.SCRAPER_POOL_TABS_PER_BROWSER, 1, 32, 8);
+  const warmup = parseBool(process.env.SCRAPER_POOL_WARMUP, true);
 
-  if (_sharedBrowserLaunching) return await _sharedBrowserLaunching;
+  const key = `${headless ? 'H' : 'V'}|${launchArgs.join(' ')}`;
+  if (_pool && _pool.key === key) return _pool;
+  if (_poolLaunching) return await _poolLaunching;
 
-  _sharedBrowserLaunching = (async () => {
-    const b = await chromium.launch({ headless, args: launchArgs });
-    _sharedBrowser = b;
-    _sharedBrowserHeadless = headless;
-    return b;
+  _poolLaunching = (async () => {
+    if (_pool) await closePool();
+
+    const browsers = [];
+    for (let bi = 0; bi < browsersCount; bi++) {
+      const browser = await chromium.launch({ headless, args: launchArgs });
+      const context = await browser.newContext({ viewport });
+
+      if (blockResources) {
+        await context.route('**/*', (route) => {
+          const type = route.request().resourceType();
+          if (type === 'image' || type === 'media' || type === 'font') return route.abort();
+          return route.continue();
+        });
+      }
+
+      const pages = [];
+      for (let pi = 0; pi < tabsPerBrowser; pi++) {
+        const page = await context.newPage();
+        if (fastMode) {
+          page.setDefaultTimeout(30000);
+          page.setDefaultNavigationTimeout(60000);
+        }
+        pages.push({ index: pi, page, busy: false, warmed: false });
+      }
+
+      browsers.push({ index: bi, browser, context, pages });
+    }
+
+    const pool = { key, headless, browsers, waiters: [], warmup, targetHome };
+
+    if (warmup) {
+      const FROM_SELECT = '#buchungen_buchen_form > div:nth-child(3) > select';
+      await Promise.all(
+        browsers.flatMap((b) =>
+          b.pages.map(async (p) => {
+            try {
+              await p.page.goto(targetHome, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await p.page.locator(FROM_SELECT).first().waitFor({ state: 'visible', timeout: 30000 });
+              p.warmed = true;
+            } catch (_) {
+              p.warmed = false;
+            }
+          })
+        )
+      );
+    }
+
+    _pool = pool;
+    return pool;
   })();
 
   try {
-    return await _sharedBrowserLaunching;
+    return await _poolLaunching;
   } finally {
-    _sharedBrowserLaunching = null;
+    _poolLaunching = null;
   }
 }
 
-async function closeSharedBrowser() {
-  if (!_sharedBrowser) return;
-  try { await _sharedBrowser.close(); } catch (_) {}
-  _sharedBrowser = null;
-  _sharedBrowserHeadless = null;
-  _sharedContext = null;
-  _sharedPage = null;
-  _sharedContextConfigured = false;
+async function acquireTab(pool) {
+  for (const b of pool.browsers) {
+    for (const p of b.pages) {
+      if (!p.busy) {
+        p.busy = true;
+        return { browserIndex: b.index, tabIndex: p.index, context: b.context, page: p.page, _ref: p };
+      }
+    }
+  }
+  return await new Promise((resolve) => {
+    pool.waiters.push(resolve);
+  });
 }
 
-// Best-effort cleanup on shutdown (especially useful if browser reuse is enabled).
-process.once('SIGINT', () => { closeSharedBrowser().finally(() => process.exit(0)); });
-process.once('SIGTERM', () => { closeSharedBrowser().finally(() => process.exit(0)); });
-process.once('beforeExit', () => { closeSharedBrowser().catch(() => {}); });
+function releaseTab(pool, handle) {
+  if (!pool || !handle || !handle._ref) return;
+  handle._ref.busy = false;
+  const next = pool.waiters.shift();
+  if (next) {
+    handle._ref.busy = true;
+    next(handle);
+  }
+}
 
 function clampInt(val, min, max, fallback) {
   const n = parseInt(String(val ?? ''), 10);
@@ -208,8 +276,7 @@ async function searchFlights(input) {
   // and optionally block images/fonts/media to reduce bandwidth/CPU.
   const fastMode = parseBool(process.env.SCRAPER_FAST_MODE, headless);
   const blockResources = parseBool(process.env.SCRAPER_BLOCK_RESOURCES, fastMode);
-  const keepReady = parseBool(process.env.SCRAPER_KEEP_READY, parseBool(process.env.SCRAPER_REUSE_BROWSER, true));
-  const reusePage = parseBool(process.env.SCRAPER_REUSE_PAGE, keepReady);
+  const keepReady = parseBool(process.env.SCRAPER_KEEP_READY, true);
 
   // Close the browser as soon as scraping finishes (default).
   // If you need to visually debug, set keepBrowserOpenMs > 0 in the UI (or KEEP_BROWSER_OPEN_MS in env).
@@ -237,20 +304,13 @@ async function searchFlights(input) {
   }
 
   const launchArgs = ['--window-size=1280,900'];
-  const browser = await getBrowser({ headless, launchArgs });
-
-  // If reusePage is enabled, we keep a single context+page warm across searches.
-  // Important: we must serialize searches so they don't fight over the same page.
-  const runSerialized = async (fn) => {
-    const next = _sharedSearchLock.then(fn, fn);
-    _sharedSearchLock = next.then(() => {}, () => {});
-    return await next;
-  };
+  const viewport = { width: 1280, height: 900 };
+  const pool = await ensurePool({ headless, launchArgs, viewport, targetHome, blockResources, fastMode });
+  const handle = await acquireTab(pool);
 
   const run = async () => {
-    let context = null;
-    let page = null;
-    const createdFreshContext = !reusePage;
+    const context = handle.context;
+    const page = handle.page;
     const t0 = Date.now();
     let tHome = null;
     let tFormFilled = null;
@@ -260,38 +320,6 @@ async function searchFlights(input) {
     let tReset = null;
 
     try {
-      if (reusePage) {
-        // Create shared context/page if missing (or if it got closed).
-        if (!_sharedContext || !_sharedPage) {
-          _sharedContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-          _sharedContextConfigured = false;
-          _sharedPage = await _sharedContext.newPage();
-        }
-        context = _sharedContext;
-        page = _sharedPage;
-
-        if (!_sharedContextConfigured) {
-          if (blockResources) {
-            await context.route('**/*', (route) => {
-              const type = route.request().resourceType();
-              if (type === 'image' || type === 'media' || type === 'font') return route.abort();
-              return route.continue();
-            });
-          }
-          _sharedContextConfigured = true;
-        }
-      } else {
-        context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-        if (blockResources) {
-          await context.route('**/*', (route) => {
-            const type = route.request().resourceType();
-            if (type === 'image' || type === 'media' || type === 'font') return route.abort();
-            return route.continue();
-          });
-        }
-        page = await context.newPage();
-      }
-
       if (fastMode) {
         page.setDefaultTimeout(30000);
         page.setDefaultNavigationTimeout(60000);
@@ -308,6 +336,7 @@ async function searchFlights(input) {
         await page.goto(targetHome, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.locator(FROM_SELECT).first().waitFor({ state: 'visible', timeout: 30000 });
       }
+      if (handle._ref) handle._ref.warmed = true;
       tHome = Date.now();
 
     // === Trip type radio ===
@@ -693,7 +722,7 @@ async function searchFlights(input) {
     }
 
     // Keep the page warm and ready for the next search (go back home and idle).
-      if (reusePage && keepReady) {
+      if (keepReady) {
         try {
           // After scraping we want to *actively* return to the provider homepage (for the next search).
           // Prefer clicking the site's logo/link; fall back to goto if that fails.
@@ -721,10 +750,7 @@ async function searchFlights(input) {
           }
           await page.locator(FROM_SELECT).first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => {});
         } catch (_) {
-          // If reset fails, drop the shared page so next run recreates it cleanly.
-          _sharedPage = null;
-          _sharedContext = null;
-          _sharedContextConfigured = false;
+          if (handle._ref) handle._ref.warmed = false;
         }
       }
       tReset = Date.now();
@@ -734,8 +760,14 @@ async function searchFlights(input) {
         targetHome,
         headless,
         url: page.url(),
-        warmPage: !!reusePage,
+        warmPage: true,
         keepReady: !!keepReady,
+        pool: {
+          browsers: pool.browsers.length,
+          tabsPerBrowser: pool.browsers[0]?.pages?.length || 0,
+          browserIndex: handle.browserIndex,
+          tabIndex: handle.tabIndex
+        },
         timingsMs: (() => {
           const safe = (x) => (typeof x === 'number' && Number.isFinite(x)) ? x : null;
           const home = safe(tHome);
@@ -745,7 +777,7 @@ async function searchFlights(input) {
           const scrapedAt = safe(tScraped);
           const resetAt = safe(tReset);
 
-          const end = (reusePage && keepReady && resetAt) ? resetAt : (scrapedAt || Date.now());
+          const end = (keepReady && resetAt) ? resetAt : (scrapedAt || Date.now());
           const out = {
             totalMs: end - t0
           };
@@ -762,22 +794,9 @@ async function searchFlights(input) {
       flights: scraped
     };
     } finally {
-      // Non-reuse mode: close the context after each search.
-      if (createdFreshContext) {
-        try { if (context) await context.close(); } catch (_) {}
-        const reuseBrowser2 = parseBool(process.env.SCRAPER_REUSE_BROWSER, true);
-        if (!reuseBrowser2) {
-          await browser.close().catch(() => {});
-        }
-      }
+      releaseTab(pool, handle);
     }
   };
-
-  if (reusePage) {
-    return await runSerialized(run);
-  }
-
-  // Non-reuse mode: run normally and close context/browser.
   return await run();
 }
 
