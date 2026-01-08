@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AirKosova – Flight Search</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="home">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-left">
+        <a class="topbar-item" href="tel:+38338660880">+383 38 660 880</a>
+        <span class="topbar-sep">&amp;</span>
+        <a class="topbar-item" href="tel:+38344955955">+383 44 955 955</a>
+        <span class="topbar-sep">&amp;</span>
+        <a class="topbar-item" href="tel:+41435052880">+41 43 505 28 80</a>
+        <span class="topbar-sep">|</span>
+        <a class="topbar-item" href="mailto:info@airkosova.net">info@airkosova.net</a>
+      </div>
+      <div class="topbar-right">
+        <a class="topbar-item" href="#">LOGIN</a>
+        <span class="topbar-sep">|</span>
+        <span class="topbar-item">AL</span>
+        <span class="topbar-sep">|</span>
+        <span class="topbar-item">DE</span>
+        <span class="topbar-sep">|</span>
+        <span class="topbar-item">EN</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-page">
+    <div class="hero-nav">
+      <div class="container">
+        <div class="nav-row">
+          <div class="brand">
+            <img class="brand-logo" src="/images/airkosova_logo.png" alt="AirKosova" />
+          </div>
+          <nav class="nav-links" aria-label="Primary">
+            <a class="nav-link active" href="#">Rezervo</a>
+            <a class="nav-link" href="#">Informacione</a>
+            <a class="nav-link" href="#">Kontakti</a>
+            <a class="nav-link" href="#">Fluturimet</a>
+            <a class="nav-link" href="#">LOGIN</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="booking-wrap">
+        <div class="booking-card">
+          <div class="booking-title">BOOK YOUR FLIGHT</div>
+
+          <div class="booking-tabs" role="tablist" aria-label="Search tabs">
+            <button class="booking-tab active" type="button" role="tab" aria-selected="true">✈️ FLUTURIMET</button>
+            <button class="booking-tab" type="button" role="tab" aria-selected="false">👤 HYR</button>
+          </div>
+
+          <form id="searchForm" class="booking-form">
+            <div class="grid">
+              <label class="field">
+                <span class="field-label">NISJA:</span>
+                <select name="departure" required>
+                  <option value="PRN" selected>Prishtina (PRN)</option>
+                  <option value="ARN">Stockholm (ARN)</option>
+                  <option value="BER">Berlin Brandenburg (BER)</option>
+                  <option value="BGY">Milano Bergamo (BGY)</option>
+                  <option value="BRE">Bremen (BRE)</option>
+                  <option value="BRU">Brussels (BRU)</option>
+                  <option value="BSL">Basel (BSL)</option>
+                  <option value="CGN">Köln/Bonn (CGN)</option>
+                  <option value="DTM">Dortmund (DTM)</option>
+                  <option value="DUS">Düsseldorf (DUS)</option>
+                  <option value="FMM">Memmingen (FMM)</option>
+                  <option value="FMO">Münster-Osnabrück (FMO)</option>
+                  <option value="GOT">Göteborg Landvetter (GOT)</option>
+                  <option value="GVA">Geneva (GVA)</option>
+                  <option value="HAJ">Hannover (HAJ)</option>
+                  <option value="HAM">Hamburg (HAM)</option>
+                  <option value="HEL">Helsinki (HEL)</option>
+                  <option value="LJU">Ljubljana (LJU)</option>
+                  <option value="LUX">Luxembourg (LUX)</option>
+                  <option value="MMX">Malmö (MMX)</option>
+                  <option value="MUC">München (MUC)</option>
+                  <option value="NUE">Nürnberg (NUE)</option>
+                  <option value="OSL">Oslo (OSL)</option>
+                  <option value="STR">Stuttgart (STR)</option>
+                  <option value="SZG">Salzburg (SZG)</option>
+                  <option value="VIE">Vienna (VIE)</option>
+                  <option value="VXO">Växjö-Småland (VXO)</option>
+                  <option value="ZRH">Zürich (ZRH)</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">DESTINACIONI:</span>
+                <select name="destination" required>
+                  <option value="PRN">Prishtina (PRN)</option>
+                  <option value="ARN">Stockholm (ARN)</option>
+                  <option value="BER">Berlin Brandenburg (BER)</option>
+                  <option value="BGY">Milano Bergamo (BGY)</option>
+                  <option value="BRE">Bremen (BRE)</option>
+                  <option value="BRU">Brussels (BRU)</option>
+                  <option value="BSL" selected>Basel (BSL)</option>
+                  <option value="CGN">Köln/Bonn (CGN)</option>
+                  <option value="DTM">Dortmund (DTM)</option>
+                  <option value="DUS">Düsseldorf (DUS)</option>
+                  <option value="FMM">Memmingen (FMM)</option>
+                  <option value="FMO">Münster-Osnabrück (FMO)</option>
+                  <option value="GOT">Göteborg Landvetter (GOT)</option>
+                  <option value="GVA">Geneva (GVA)</option>
+                  <option value="HAJ">Hannover (HAJ)</option>
+                  <option value="HAM">Hamburg (HAM)</option>
+                  <option value="HEL">Helsinki (HEL)</option>
+                  <option value="LJU">Ljubljana (LJU)</option>
+                  <option value="LUX">Luxembourg (LUX)</option>
+                  <option value="MMX">Malmö (MMX)</option>
+                  <option value="MUC">München (MUC)</option>
+                  <option value="NUE">Nürnberg (NUE)</option>
+                  <option value="OSL">Oslo (OSL)</option>
+                  <option value="STR">Stuttgart (STR)</option>
+                  <option value="SZG">Salzburg (SZG)</option>
+                  <option value="VIE">Vienna (VIE)</option>
+                  <option value="VXO">Växjö-Småland (VXO)</option>
+                  <option value="ZRH">Zürich (ZRH)</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">NISJA MË:</span>
+                <input name="departureDate" type="date" required />
+              </label>
+
+              <label class="field">
+                <span class="field-label">KTHIMI MË:</span>
+                <input name="returnDate" type="date" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">TË RITUR:</span>
+                <input name="adults" type="number" min="1" max="5" value="1" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">FËMIJË:</span>
+                <input name="children" type="number" min="0" max="5" value="0" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">FOSHNJË:</span>
+                <input name="infants" type="number" min="0" max="5" value="0" />
+              </label>
+            </div>
+
+            <div class="booking-row">
+              <div class="booking-radios">
+                <label class="radio">
+                  <input type="radio" name="tripType" value="roundtrip" checked />
+                  <span>Nisje dhe Kthim</span>
+                </label>
+                <label class="radio">
+                  <input type="radio" name="tripType" value="oneway" />
+                  <span>Njëdrejtimshe</span>
+                </label>
+                <span class="eur-note">Të gjitha çmimet shfaqen dhe faturohen në EUR.</span>
+              </div>
+
+              <div class="booking-actions">
+                <label class="toggle">
+                  <input type="checkbox" name="openBrowser" <%= openBrowserOnSearch ? 'checked' : '' %> />
+                  <span>Open Chromium</span>
+                </label>
+                <input class="keep" name="keepBrowserOpenMs" type="number" min="0" max="120000" value="<%= keepBrowserOpenMs %>" title="Keep browser open (ms)" />
+                <button class="btn booking-btn" type="submit">🔍 KËRKONI FLUTURIMIN</button>
+              </div>
+            </div>
+
+            <div class="booking-foot">
+              <a class="link" href="<%= targetSiteHome %>" target="_blank" rel="noreferrer">Target site</a>
+              <span class="note">Prices are scraped live from the provider site.</span>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="below-fold">
+        <section class="strip">
+          <div class="strip-card">
+            <h3>CALL CENTER</h3>
+            <p><strong>Info:</strong> 09:00 - 22:00</p>
+            <p><strong>Tel:</strong> +383 38 660 880 · +383 44 955 955 · +41 43 505 28 80</p>
+          </div>
+          <div class="strip-card">
+            <h3>LOGIN</h3>
+            <p class="muted">Hyrja / MY BOOKING:</p>
+            <form class="mini-login" onsubmit="return false;">
+              <label>
+                <span>Emri i përdoruesit:</span>
+                <input type="text" placeholder="Username" />
+              </label>
+              <label>
+                <span>Fjalëkalimi:</span>
+                <input type="password" placeholder="Password" />
+              </label>
+              <button class="btn secondary" type="submit">Login</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="features">
+          <div class="feature">
+            <h3>Përvojë 10 vjeqare</h3>
+            <p>Binduni ne sigurinë dhe përvojën tone.</p>
+          </div>
+          <div class="feature">
+            <h3>Rezervime Online</h3>
+            <p>Tani e tutje ju mund të rezervoni online.</p>
+          </div>
+          <div class="feature">
+            <h3>INFORMACIONE 24h</h3>
+            <p>Ne jemi me dëshirë në shërbimin tuaj.</p>
+          </div>
+        </section>
+
+        <section class="destinations">
+          <div class="section-head">
+            <h2>TOP DESTINACIONET</h2>
+            <p>Fluturime ne te gjitha destinacionet Europiane dhe Boterore.</p>
+          </div>
+          <div class="dest-grid">
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/basel.png" alt="Basel" />
+              <div class="dest-meta">
+                <div class="dest-route">BASEL - Prishtina</div>
+                <div class="dest-sub">OW/Person</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/prishtina.png" alt="Prishtina" />
+              <div class="dest-meta">
+                <div class="dest-route">Prishtina - BASEL</div>
+                <div class="dest-sub">OW/Person</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/dusseldorf.png" alt="Düsseldorf" />
+              <div class="dest-meta">
+                <div class="dest-route">Düsseldorf - Prishtina</div>
+                <div class="dest-sub">Rezervo</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/stuttgart.png" alt="Stuttgart" />
+              <div class="dest-meta">
+                <div class="dest-route">Stuttgart - Prishtina</div>
+                <div class="dest-sub">Rezervo</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/munchen.png" alt="München" />
+              <div class="dest-meta">
+                <div class="dest-route">München - Prishtina</div>
+                <div class="dest-sub">Rezervo</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/nuremberg.png" alt="Nürnberg" />
+              <div class="dest-meta">
+                <div class="dest-route">Nürnberg - Prishtina</div>
+                <div class="dest-sub">Rezervo</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/vaxjo.png" alt="Växjö-Småland" />
+              <div class="dest-meta">
+                <div class="dest-route">Växjö-Småland - Prishtina</div>
+                <div class="dest-sub">Rezervo</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/munster.png" alt="Münster" />
+              <div class="dest-meta">
+                <div class="dest-route">Münster - Prishtina</div>
+                <div class="dest-sub">Rezervo</div>
+              </div>
+            </a>
+            <a class="dest" href="#">
+              <img src="/images/top-destinations/bremen.png" alt="Bremen" />
+              <div class="dest-meta">
+                <div class="dest-route">Bremen - Prishtina</div>
+                <div class="dest-sub">Rezervo</div>
+              </div>
+            </a>
+          </div>
+        </section>
+
+        <footer class="site-footer">
+          <div class="footer-grid">
+            <div>
+              <h4>Contact-Prishtina</h4>
+              <p>Bulevardi Bill Klinton 12, 10000 Prishtinë</p>
+              <p><a href="tel:+38344955955">+383 44 955 955</a> · <a href="tel:+41435052880">+41 43 505 28 80</a></p>
+              <p><a href="mailto:info@airkosova.net">info@airkosova.net</a></p>
+            </div>
+            <div>
+              <h4>Contact-London</h4>
+              <p>71-75 Shelton Street, Covent Garden, London, WC2H 9JQ UK</p>
+              <p><a href="mailto:info@airkosova.net">info@airkosova.net</a></p>
+            </div>
+            <div>
+              <h4>Gjuhet</h4>
+              <p>AL · DE · EN</p>
+            </div>
+          </div>
+          <div class="footer-bottom">
+            <span>© <%= new Date().getFullYear() %> - All Rights Reserved by O.T.A Airkosova Network SH.P.K.</span>
+          </div>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js?v=<%= assetVersion %>"></script>
+  <script>
+    // Airport label map (code -> display label). Keep diacritics correct.
+    window.AK_AIRPORTS = {
+      PRN: 'Prishtina (PRN)',
+      ARN: 'Stockholm (ARN)',
+      BER: 'Berlin Brandenburg (BER)',
+      BGY: 'Milano Bergamo (BGY)',
+      BRE: 'Bremen (BRE)',
+      BRU: 'Brussels (BRU)',
+      BSL: 'Basel (BSL)',
+      CGN: 'Köln/Bonn (CGN)',
+      DTM: 'Dortmund (DTM)',
+      DUS: 'Düsseldorf (DUS)',
+      FMM: 'Memmingen (FMM)',
+      FMO: 'Münster-Osnabrück (FMO)',
+      GOT: 'Göteborg Landvetter (GOT)',
+      GVA: 'Geneva (GVA)',
+      HAJ: 'Hannover (HAJ)',
+      HAM: 'Hamburg (HAM)',
+      HEL: 'Helsinki (HEL)',
+      LJU: 'Ljubljana (LJU)',
+      LUX: 'Luxembourg (LUX)',
+      MMX: 'Malmö (MMX)',
+      MUC: 'München (MUC)',
+      NUE: 'Nürnberg (NUE)',
+      OSL: 'Oslo (OSL)',
+      STR: 'Stuttgart (STR)',
+      SZG: 'Salzburg (SZG)',
+      VIE: 'Vienna (VIE)',
+      VXO: 'Växjö-Småland (VXO)',
+      ZRH: 'Zürich (ZRH)'
+    };
+
+    // From -> allowed destinations (by airport code)
+    window.AK_ROUTES = {
+      // Prishtina
+      PRN: ['ARN','BER','BGY','BRE','BRU','BSL','CGN','DTM','DUS','FMM','FMO','GOT','GVA','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','STR','SZG','VIE','VXO','ZRH'],
+
+      // Stockholm / Berlin / Milano / Bremen / Brussels
+      ARN: ['BSL','GVA','PRN','ZRH'],
+      BER: ['BSL','GVA','PRN','ZRH'],
+      BGY: ['BSL','GVA','PRN','ZRH'],
+      BRE: ['BSL','GVA','PRN','ZRH'],
+      BRU: ['BSL','GVA','PRN','ZRH'],
+
+      // Basel (as provided)
+      BSL: ['ARN','BER','BGY','BRE','BRU','CGN','DTM','DUS','FMM','FMO','GOT','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','PRN','STR','SZG','VIE','VXO'],
+
+      // Köln/Bonn / Dortmund / Düsseldorf / Memmingen / Münster-Osnabrück / Göteborg / Hannover / Hamburg / Helsinki / Ljubljana / Luxembourg / Malmö / München / Nürnberg / Oslo / Stuttgart / Salzburg / Vienna / Växjö-Småland
+      CGN: ['BSL','GVA','PRN','ZRH'],
+      DTM: ['BSL','GVA','PRN','ZRH'],
+      DUS: ['BSL','GVA','PRN','ZRH'],
+      FMM: ['BSL','GVA','PRN','ZRH'],
+      FMO: ['BSL','GVA','PRN','ZRH'],
+      GOT: ['BSL','GVA','PRN','ZRH'],
+      HAJ: ['BSL','GVA','PRN','ZRH'],
+      HAM: ['BSL','GVA','PRN','ZRH'],
+      HEL: ['BSL','GVA','PRN','ZRH'],
+      LJU: ['BSL','GVA','PRN','ZRH'],
+      LUX: ['BSL','GVA','PRN','ZRH'],
+      MMX: ['BSL','GVA','PRN','ZRH'],
+      MUC: ['BSL','GVA','PRN','ZRH'],
+      NUE: ['BSL','GVA','PRN','ZRH'],
+      OSL: ['BSL','GVA','PRN','ZRH'],
+      STR: ['BSL','GVA','PRN','ZRH'],
+      SZG: ['BSL','GVA','PRN','ZRH'],
+      VIE: ['BSL','GVA','PRN','ZRH'],
+      VXO: ['BSL','GVA','PRN','ZRH'],
+
+      // Geneva (as provided)
+      GVA: ['ARN','BER','BGY','BRE','BRU','CGN','DTM','DUS','FMM','FMO','GOT','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','PRN','STR','SZG','VIE','VXO'],
+
+      // Zürich (as provided)
+      ZRH: ['ARN','BER','BGY','BRE','BRU','CGN','DTM','DUS','FMM','FMO','GOT','HAJ','HAM','HEL','LJU','LUX','MMX','MUC','NUE','OSL','PRN','STR','SZG','VIE','VXO']
+    };
+  </script>
+</body>
+</html>
+
+

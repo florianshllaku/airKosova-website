@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AirKosova – Results</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="results-page">
+  <div class="container">
+    <header class="header">
+      <a href="/" class="header-link">
+        <img class="logo" src="/images/airkosova_logo.png" alt="AirKosova" />
+        <div class="title">
+          <h1>Results</h1>
+          <p class="sub">Scraped from <span class="pill"><%= targetSiteHome %></span></p>
+          <p class="sub" style="margin-top:8px;">
+            Build: <span class="pill"><%= assetVersion %></span>
+            <span class="pill" id="buildPid">pid: —</span>
+            <span class="pill" id="e2eTime">end-to-end: —</span>
+          </p>
+        </div>
+      </a>
+    </header>
+
+    <section class="card">
+      <div id="status" class="status">Preparing search…</div>
+      <div class="actions" style="margin-top:10px;">
+        <button id="btnRescrape" class="btn" type="button">Rescrape</button>
+      </div>
+      <div id="results" class="results">
+        <div id="resultsView" class="results-stack" style="display:none;">
+          <section class="result-block">
+            <div class="rb-head">
+              <div>
+                <div class="rb-title">Outbound flight:</div>
+                <div id="outRoute" class="rb-route">—</div>
+              </div>
+            </div>
+            <div id="outCarousel"></div>
+            <div id="outCards"></div>
+            <div id="outBest" class="rb-footer"></div>
+          </section>
+
+          <section class="result-block">
+            <div class="rb-head">
+              <div>
+                <div class="rb-title">Return flight:</div>
+                <div id="retRoute" class="rb-route">—</div>
+              </div>
+            </div>
+            <div id="retCarousel"></div>
+            <div id="retCards"></div>
+            <div id="retBest" class="rb-footer"></div>
+          </section>
+
+          <div class="result-actions">
+            <button type="button" class="btn booking-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})">Continue</button>
+          </div>
+
+          <details class="debug-panel">
+            <summary>Debug</summary>
+            <div class="debug-inner">
+              <div class="pill">tripType: <strong id="debugTripType">—</strong></div>
+              <div class="pill">sourceURL: <strong id="debugSourceUrl">—</strong></div>
+              <div class="pill" id="debugTimingWrap" style="display:none;">serverTiming: <strong id="debugTiming">—</strong></div>
+              <div class="pill">outboundSelector: <strong id="debugOutSel">—</strong></div>
+              <div class="pill">returnSelector: <strong id="debugRetSel">—</strong></div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Defaults injected from server (user can override per-search payload)
+    window.AK_DEFAULTS = {
+      openBrowserOnSearch: <%- JSON.stringify(!!openBrowserOnSearch) %>,
+      keepBrowserOpenMs: <%- JSON.stringify(keepBrowserOpenMs || 0) %>
+    };
+    window.AK_BUILD = {
+      assetVersion: <%- JSON.stringify(assetVersion || '') %>
+    };
+
+    // Airport label map (code -> display label). Keep diacritics correct.
+    window.AK_AIRPORTS = {
+      PRN: 'Prishtina (PRN)',
+      ARN: 'Stockholm (ARN)',
+      BER: 'Berlin Brandenburg (BER)',
+      BGY: 'Milano Bergamo (BGY)',
+      BRE: 'Bremen (BRE)',
+      BRU: 'Brussels (BRU)',
+      BSL: 'Basel (BSL)',
+      CGN: 'Köln/Bonn (CGN)',
+      DTM: 'Dortmund (DTM)',
+      DUS: 'Düsseldorf (DUS)',
+      FMM: 'Memmingen (FMM)',
+      FMO: 'Münster-Osnabrück (FMO)',
+      GOT: 'Göteborg Landvetter (GOT)',
+      GVA: 'Geneva (GVA)',
+      HAJ: 'Hannover (HAJ)',
+      HAM: 'Hamburg (HAM)',
+      HEL: 'Helsinki (HEL)',
+      LJU: 'Ljubljana (LJU)',
+      LUX: 'Luxembourg (LUX)',
+      MMX: 'Malmö (MMX)',
+      MUC: 'München (MUC)',
+      NUE: 'Nürnberg (NUE)',
+      OSL: 'Oslo (OSL)',
+      STR: 'Stuttgart (STR)',
+      SZG: 'Salzburg (SZG)',
+      VIE: 'Vienna (VIE)',
+      VXO: 'Växjö-Småland (VXO)',
+      ZRH: 'Zürich (ZRH)'
+    };
+  </script>
+  <script src="/js/results.js?v=<%= assetVersion %>"></script>
+</body>
+</html>
+
+
