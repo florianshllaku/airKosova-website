@@ -91,6 +91,45 @@ app.get('/api/pool', (req, res) => {
 // Host performance/load-test reports
 const REPORTS_DIR = path.join(__dirname, 'reports');
 try { fs.mkdirSync(REPORTS_DIR, { recursive: true }); } catch (_) {}
+app.get(['/reports', '/reports/'], (req, res) => {
+  // If a generated index.html exists (created by the load test script), serve it.
+  const indexPath = path.join(REPORTS_DIR, 'index.html');
+  try {
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+  } catch (_) {}
+
+  // Otherwise show a simple listing/instructions instead of "Cannot GET /reports/".
+  let runs = [];
+  try {
+    runs = fs.readdirSync(REPORTS_DIR, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name.startsWith('run-'))
+      .map((d) => d.name)
+      .sort()
+      .reverse();
+  } catch (_) {}
+
+  const items = runs.length
+    ? runs.map((name) => `<li><a href="/reports/${name}/report.html">${name}</a> (<a href="/reports/${name}/summary.json">summary</a>)</li>`).join('')
+    : '<li><em>No reports yet.</em> Run the load test to generate them.</li>';
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html>
+<html><head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AirKosova Reports</title>
+  <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:20px} .muted{color:#666}</style>
+</head><body>
+  <h2>AirKosova Reports</h2>
+  <div class="muted">No generated <code>reports/index.html</code> found yet.</div>
+  <p class="muted">Generate reports by running the load test on this server:</p>
+  <pre>BASE_URL=http://46.224.125.111:3000 RATE_PER_MIN=30 DURATION_MIN=5 MAX_IN_FLIGHT=16 npm run loadtest</pre>
+  <h3>Runs</h3>
+  <ul>${items}</ul>
+</body></html>`);
+});
 app.use('/reports', express.static(REPORTS_DIR, {
   index: ['index.html']
 }));
