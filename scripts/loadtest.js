@@ -271,7 +271,14 @@ async function main() {
   // Default to production URL (can still be overridden by BASE_URL env var).
   const BASE_URL = process.env.BASE_URL || 'http://46.224.125.111:3000';
   const RATE_PER_MIN = clampInt(process.env.RATE_PER_MIN || 30, 1, 600);
-  const DURATION_MIN = clampInt(process.env.DURATION_MIN || 5, 1, 180);
+  // Default to 1 minute so the default run is exactly 30 requests.
+  const DURATION_MIN = clampInt(process.env.DURATION_MIN || 1, 1, 180);
+  // If set, TOTAL_REQUESTS overrides RATE_PER_MIN*DURATION_MIN.
+  const TOTAL_REQUESTS = clampInt(
+    process.env.TOTAL_REQUESTS || (RATE_PER_MIN * DURATION_MIN),
+    1,
+    200000
+  );
   const MAX_IN_FLIGHT = clampInt(process.env.MAX_IN_FLIGHT || 16, 1, 256);
 
   const reportsRoot = path.join(process.cwd(), 'reports');
@@ -287,12 +294,12 @@ async function main() {
     baseUrl: BASE_URL,
     ratePerMin: RATE_PER_MIN,
     durationMin: DURATION_MIN,
+    totalRequestsPlanned: TOTAL_REQUESTS,
     maxInFlight: MAX_IN_FLIGHT,
     startedAt: nowIso()
   };
 
-  const intervalMs = Math.round(60000 / RATE_PER_MIN);
-  const totalMs = DURATION_MIN * 60000;
+  const intervalMs = Math.max(1, Math.round(60000 / RATE_PER_MIN));
   const startedAtMs = Date.now();
 
   const records = [];
@@ -342,12 +349,17 @@ async function main() {
     }
   };
 
-  // Scheduler loop
-  while (Date.now() - startedAtMs < totalMs) {
-    if (inflight < MAX_IN_FLIGHT) {
-      fireOne(); // don't await (parallel)
+  // Scheduler: fire exactly TOTAL_REQUESTS, spaced at RATE_PER_MIN.
+  for (let i = 0; i < TOTAL_REQUESTS; i++) {
+    const scheduledAt = startedAtMs + (i * intervalMs);
+    const delay = scheduledAt - Date.now();
+    if (delay > 0) await sleep(delay);
+
+    // Backpressure: if we hit max concurrency, wait until a slot frees up.
+    while (inflight >= MAX_IN_FLIGHT) {
+      await sleep(100);
     }
-    await sleep(intervalMs);
+    fireOne(); // don't await (parallel)
   }
 
   // Drain
@@ -377,6 +389,7 @@ async function main() {
     baseUrl: BASE_URL,
     ratePerMin: RATE_PER_MIN,
     durationMin: DURATION_MIN,
+    totalRequestsPlanned: TOTAL_REQUESTS,
     maxInFlight: MAX_IN_FLIGHT,
     runDurationMs: runMeta.runDurationMs,
     startedAt: runMeta.startedAt,

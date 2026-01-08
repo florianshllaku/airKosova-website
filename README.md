@@ -46,10 +46,16 @@ By default on Windows the app may open a visible browser window during scraping 
 
 The repo includes a simple load test script that generates an HTML report (with charts) into `reports/` which the server hosts at `/reports`.
 
-Run (defaults: 30 req/min for 5 minutes, max 16 in-flight):
+Run (defaults: exactly 30 requests over 1 minute, max 16 in-flight):
 
 ```bash
 BASE_URL=http://46.224.125.111:3000 RATE_PER_MIN=30 DURATION_MIN=5 MAX_IN_FLIGHT=16 npm run loadtest
+```
+
+To run exactly 30 requests:
+
+```bash
+BASE_URL=http://46.224.125.111:3000 TOTAL_REQUESTS=30 RATE_PER_MIN=30 DURATION_MIN=1 MAX_IN_FLIGHT=16 npm run loadtest
 ```
 
 Useful endpoints:
