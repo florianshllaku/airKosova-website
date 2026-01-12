@@ -1,0 +1,15 @@
+node_modules/
+logs/
+*.log
+
+.env
+.env.*
+
+# local overrides (keep if you want)
+env.local
+
+# Generated load-test reports
+reports/
+
+
+

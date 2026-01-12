@@ -1,0 +1,1362 @@
+<!doctype html>
+<html lang="sq">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AirKosova – Complete Your Booking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/translations.js?v=<%= assetVersion %>"></script>
+</head>
+<body class="booking-page">
+  <!-- Navigation -->
+  <nav class="hero-nav">
+    <div class="nav-row">
+      <div class="brand">
+        <a href="/">
+          <img class="brand-logo" src="/images/airkosova_logo.png" alt="AirKosova" />
+        </a>
+      </div>
+      <div class="nav-links">
+        <a class="nav-link" href="/" data-i18n="nav_book">Rezervo</a>
+        <div class="nav-dropdown">
+          <a class="nav-link" href="#" data-i18n="nav_info">Informacione</a>
+          <div class="nav-dropdown-menu">
+            <a href="/info/siguria" class="nav-dropdown-item" data-i18n="nav_siguria">Siguria</a>
+            <a href="/info/para-udhetimit" class="nav-dropdown-item" data-i18n="nav_para_udhetimit">Para Udhëtimit</a>
+            <a href="/info/e-biletat" class="nav-dropdown-item" data-i18n="nav_e_biletat">E-Biletat</a>
+            <a href="/info/bagazhi" class="nav-dropdown-item" data-i18n="nav_bagazhi">Bagazhi</a>
+            <a href="/info/shendeti" class="nav-dropdown-item" data-i18n="nav_shendeti">Shëndeti</a>
+          </div>
+        </div>
+        <a class="nav-link" href="/kontakt" data-i18n="nav_contact">Kontakt</a>
+        <div class="nav-dropdown nav-lang">
+          <a class="nav-link nav-lang-trigger" href="#" aria-label="Language">
+            <span class="lang-flag" data-lang-current-flag>🇦🇱</span>
+            <span class="lang-caret">▾</span>
+          </a>
+          <div class="nav-dropdown-menu nav-lang-menu">
+            <a href="#" class="nav-dropdown-item topbar-lang active" data-lang="sq">🇦🇱 Shqip</a>
+            <a href="#" class="nav-dropdown-item topbar-lang" data-lang="de">🇩🇪 Deutsch</a>
+            <a href="#" class="nav-dropdown-item topbar-lang" data-lang="en">🇬🇧 English</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="booking-container">
+    <!-- Progress Steps -->
+    <div class="booking-progress">
+      <div class="progress-step active" data-step="1">
+        <div class="step-number">1</div>
+        <div class="step-label" data-i18n="step_login">Llogaria</div>
+      </div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="2">
+        <div class="step-number">2</div>
+        <div class="step-label" data-i18n="step_passengers">Pasagjerët</div>
+      </div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="3">
+        <div class="step-number">3</div>
+        <div class="step-label" data-i18n="step_payment">Pagesa</div>
+      </div>
+    </div>
+
+    <div class="booking-content">
+      <!-- Left Column: Forms -->
+      <div class="booking-forms">
+        
+        <!-- Step 1: Login/Register -->
+        <div class="booking-step" id="step1" data-step="1">
+          <h2 data-i18n="account_title">Llogaria Juaj</h2>
+          <p class="step-description" data-i18n="account_desc">Hyni ose krijoni një llogari për të vazhduar me rezervimin</p>
+          
+          <div class="auth-tabs">
+            <button type="button" class="auth-tab active" id="tabLoginBooking" data-i18n="tab_existing">Kam Llogari</button>
+            <button type="button" class="auth-tab" id="tabRegisterBooking" data-i18n="tab_new">Krijo Llogari</button>
+          </div>
+
+          <!-- Login Form -->
+          <form id="bookingLoginForm" class="booking-auth-form">
+            <div class="form-row">
+              <div class="form-field">
+                <label data-i18n="field_email">Email ose Username</label>
+                <input type="text" name="email" placeholder="email@example.com" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label data-i18n="field_password">Fjalëkalimi</label>
+                <input type="password" name="password" placeholder="••••••••" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <a href="#" class="forgot-link" data-i18n="forgot_password">Keni harruar fjalëkalimin?</a>
+            </div>
+            <div id="loginBookingError" class="form-error" style="display:none;"></div>
+            <button type="submit" class="btn booking-btn btn-block" data-i18n="btn_login">Hyr</button>
+          </form>
+
+          <!-- Register Form -->
+          <form id="bookingRegisterForm" class="booking-auth-form" style="display:none;">
+            <div class="form-row form-row-2">
+              <div class="form-field">
+                <label data-i18n="field_salutation">Titulli</label>
+                <select name="salutation" required>
+                  <option value="">Zgjidhni...</option>
+                  <option value="mr">Z. (Mr.)</option>
+                  <option value="mrs">Znj. (Mrs.)</option>
+                  <option value="ms">Znj. (Ms.)</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label data-i18n="field_email">Email</label>
+                <input type="email" name="email" placeholder="email@example.com" required />
+              </div>
+            </div>
+            <div class="form-row form-row-2">
+              <div class="form-field">
+                <label data-i18n="field_firstname">Emri</label>
+                <input type="text" name="firstName" placeholder="John" required />
+              </div>
+              <div class="form-field">
+                <label data-i18n="field_lastname">Mbiemri</label>
+                <input type="text" name="lastName" placeholder="Doe" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label data-i18n="field_mobile">Numri i Telefonit</label>
+                <div class="phone-input-group">
+                  <select name="phonePrefix" class="phone-prefix-select" required>
+                    <option value="+383">🇽🇰 +383</option>
+                    <option value="+49">🇩🇪 +49</option>
+                    <option value="+41">🇨🇭 +41</option>
+                    <option value="+43">🇦🇹 +43</option>
+                    <option value="+355">🇦🇱 +355</option>
+                    <option value="+389">🇲🇰 +389</option>
+                    <option value="+381">🇷🇸 +381</option>
+                    <option value="+382">🇲🇪 +382</option>
+                    <option value="+386">🇸🇮 +386</option>
+                    <option value="+385">🇭🇷 +385</option>
+                    <option value="+44">🇬🇧 +44</option>
+                    <option value="+33">🇫🇷 +33</option>
+                    <option value="+39">🇮🇹 +39</option>
+                    <option value="+31">🇳🇱 +31</option>
+                    <option value="+32">🇧🇪 +32</option>
+                    <option value="+46">🇸🇪 +46</option>
+                    <option value="+47">🇳🇴 +47</option>
+                  </select>
+                  <input type="tel" name="phoneNumber" placeholder="44 123 456" class="phone-number-input" required />
+                </div>
+              </div>
+            </div>
+            <div class="form-row form-row-2">
+              <div class="form-field">
+                <label data-i18n="field_password">Fjalëkalimi</label>
+                <input type="password" name="password" placeholder="••••••••" minlength="6" required />
+              </div>
+              <div class="form-field">
+                <label data-i18n="field_confirm_password">Konfirmo Fjalëkalimin</label>
+                <input type="password" name="confirmPassword" placeholder="••••••••" minlength="6" required />
+              </div>
+            </div>
+            <div id="registerBookingError" class="form-error" style="display:none;"></div>
+            <div id="registerBookingSuccess" class="form-success" style="display:none;"></div>
+            <button type="submit" class="btn booking-btn btn-block" data-i18n="btn_register">Krijo Llogari</button>
+          </form>
+        </div>
+
+        <!-- Step 2: Passenger Details -->
+        <div class="booking-step" id="step2" data-step="2" style="display:none;">
+          <h2 data-i18n="passengers_title">Detajet e Pasagjerëve</h2>
+          <p class="step-description" data-i18n="passengers_desc">Plotësoni të dhënat për të gjithë pasagjerët</p>
+
+          <div class="selected-summary" id="selectedSummary" style="display:none;">
+            <div class="selected-summary-row">
+              <div class="selected-summary-label" data-i18n="flight_summary">Përmbledhja e Fluturimit</div>
+              <div class="selected-summary-total">
+                <span data-i18n="total_price">Çmimi Total</span>
+                <strong id="selectedSummaryTotal">—</strong>
+              </div>
+            </div>
+            <div class="selected-summary-grid">
+              <div class="selected-summary-card" id="selectedSummaryOutbound">
+                <div class="selected-summary-title" data-i18n="outbound_flight">Fluturimi i Vajtjes</div>
+                <div class="selected-summary-route" id="selectedOutRoute">—</div>
+                <div class="selected-summary-meta">
+                  <span id="selectedOutTime">—</span> · <span id="selectedOutDate">—</span>
+                </div>
+                <div class="selected-summary-price">
+                  <span data-i18n="price_per_person">Çmimi / person</span>
+                  <strong id="selectedOutPrice">—</strong>
+                </div>
+              </div>
+              <div class="selected-summary-card" id="selectedSummaryReturn">
+                <div class="selected-summary-title" data-i18n="return_flight">Fluturimi i Kthimit</div>
+                <div class="selected-summary-route" id="selectedRetRoute">—</div>
+                <div class="selected-summary-meta">
+                  <span id="selectedRetTime">—</span> · <span id="selectedRetDate">—</span>
+                </div>
+                <div class="selected-summary-price">
+                  <span data-i18n="price_per_person">Çmimi / person</span>
+                  <strong id="selectedRetPrice">—</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <form id="passengerForm" class="passenger-form">
+            <div id="passengerFields"></div>
+            
+            <div class="coupon-section">
+              <h3 data-i18n="coupon_title">Keni kod promocional?</h3>
+              <div class="coupon-row">
+                <input type="text" name="couponCode" placeholder="SUMMER2026" class="coupon-input" />
+                <button type="button" class="btn secondary" id="btnApplyCoupon" data-i18n="btn_apply">Apliko</button>
+              </div>
+              <div id="couponMessage" class="coupon-message"></div>
+            </div>
+
+            <button type="submit" class="btn booking-btn btn-block" data-i18n="btn_continue_payment">Vazhdo te Pagesa</button>
+          </form>
+        </div>
+
+        <!-- Step 3: Payment -->
+        <div class="booking-step" id="step3" data-step="3" style="display:none;">
+          <h2 data-i18n="payment_title">Pagesa</h2>
+          <p class="step-description" data-i18n="payment_desc">Përfundoni rezervimin tuaj duke paguar me kartë krediti</p>
+          
+          <form id="paymentForm" class="payment-form">
+            <div class="payment-notice">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <p data-i18n="payment_notice">Pagesa online është përkohësisht e çaktivizuar. Rezervimi juaj do të ruhet dhe mund të paguani më vonë.</p>
+            </div>
+
+            <div class="card-icons">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%231A1F71' width='48' height='48' rx='4'/%3E%3Cpath fill='%23fff' d='M19.5 31.5L22 17h3.5l-2.5 14.5zm11.4-14.5c-.7-.3-1.8-.5-3.2-.5-3.5 0-6 1.8-6 4.4 0 1.9 1.8 3 3.1 3.6 1.4.7 1.8 1.1 1.8 1.7 0 .9-1.1 1.3-2.1 1.3-1.4 0-2.2-.2-3.3-.7l-.5-.2-.5 3c.8.4 2.3.7 3.9.7 3.7 0 6.1-1.8 6.1-4.5 0-1.5-.9-2.6-3-3.6-1.2-.6-2-.9-2-1.5 0-.5.6-1 2-1 1.1 0 2 .2 2.6.5l.3.1.5-2.8z'/%3E%3C/svg%3E" alt="Visa" />
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%23000' width='48' height='48' rx='4'/%3E%3Ccircle fill='%23EB001B' cx='18' cy='24' r='10'/%3E%3Ccircle fill='%23F79E1B' cx='30' cy='24' r='10'/%3E%3Cpath fill='%23FF5F00' d='M24 16.5a10 10 0 0 0-3.5 7.5 10 10 0 0 0 3.5 7.5 10 10 0 0 0 3.5-7.5 10 10 0 0 0-3.5-7.5z'/%3E%3C/svg%3E" alt="Mastercard" />
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label data-i18n="field_card_number">Numri i Kartës</label>
+                <input type="text" name="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" disabled />
+              </div>
+            </div>
+            <div class="form-row form-row-3">
+              <div class="form-field">
+                <label data-i18n="field_expiry">Skadenca</label>
+                <input type="text" name="expiry" placeholder="MM/YY" maxlength="5" disabled />
+              </div>
+              <div class="form-field">
+                <label data-i18n="field_cvv">CVV</label>
+                <input type="text" name="cvv" placeholder="123" maxlength="4" disabled />
+              </div>
+              <div class="form-field">
+                <label data-i18n="field_cardholder">Mbajtësi i Kartës</label>
+                <input type="text" name="cardHolder" placeholder="JOHN DOE" disabled />
+              </div>
+            </div>
+
+            <div class="form-terms">
+              <label class="checkbox-label">
+                <input type="checkbox" name="terms" required />
+                <span data-i18n="terms_agree">Pranoj kushtet e shërbimit dhe politikën e privatësisë</span>
+              </label>
+            </div>
+
+            <button type="submit" class="btn booking-btn btn-block btn-success" id="btnCompleteBooking" data-i18n="btn_complete">Përfundo Rezervimin</button>
+          </form>
+        </div>
+
+        <!-- Confirmation -->
+        <div class="booking-step" id="stepConfirmation" style="display:none;">
+          <div class="confirmation-content">
+            <div class="confirmation-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <h2 data-i18n="confirmation_title">Rezervimi u Krua me Sukses!</h2>
+            <p class="step-description" data-i18n="confirmation_desc">Faleminderit për rezervimin tuaj. Do të merrni një email konfirmimi së shpejti.</p>
+            <div class="confirmation-ref">
+              <span data-i18n="booking_ref">Numri i Rezervimit:</span>
+              <strong id="bookingReference">AK-XXXXXX</strong>
+            </div>
+            <a href="/" class="btn booking-btn" data-i18n="btn_back_home">Kthehu në Faqen Kryesore</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Summary -->
+      <aside class="booking-sidebar">
+        <div class="sidebar-card">
+          <h3 data-i18n="flight_summary">Përmbledhja e Fluturimit</h3>
+          
+          <!-- Outbound Flight Card -->
+          <div class="sidebar-flight" id="sidebarOutbound">
+            <div class="sf-header">
+              <span class="sf-label" data-i18n="outbound_flight">Fluturimi i Vajtjes</span>
+            </div>
+            <div class="sf-route" id="sidebarOutRoute">—</div>
+            <div class="sf-details">
+              <div class="sf-time" id="sidebarOutTime">—</div>
+              <div class="sf-date" id="sidebarOutDate">—</div>
+            </div>
+            <div class="sf-price" id="sidebarOutPrice">—</div>
+          </div>
+
+          <!-- Return Flight Card -->
+          <div class="sidebar-flight" id="sidebarReturn">
+            <div class="sf-header">
+              <span class="sf-label" data-i18n="return_flight">Fluturimi i Kthimit</span>
+            </div>
+            <div class="sf-route" id="sidebarRetRoute">—</div>
+            <div class="sf-details">
+              <div class="sf-time" id="sidebarRetTime">—</div>
+              <div class="sf-date" id="sidebarRetDate">—</div>
+            </div>
+            <div class="sf-price" id="sidebarRetPrice">—</div>
+          </div>
+
+          <!-- Passengers -->
+          <div class="sidebar-passengers">
+            <div class="sp-row">
+              <span data-i18n="adults">Të rritur</span>
+              <span id="sidebarAdults">1</span>
+            </div>
+            <div class="sp-row" id="sidebarChildrenRow" style="display:none;">
+              <span data-i18n="children">Fëmijë (2-11)</span>
+              <span id="sidebarChildren">0</span>
+            </div>
+            <div class="sp-row" id="sidebarInfantsRow" style="display:none;">
+              <span data-i18n="infants">Foshnja (0-2)</span>
+              <span id="sidebarInfants">0</span>
+            </div>
+          </div>
+
+          <!-- Coupon Discount -->
+          <div class="sidebar-discount" id="sidebarDiscount" style="display:none;">
+            <div class="sd-row">
+              <span data-i18n="discount">Zbritje</span>
+              <span id="sidebarDiscountAmount">-€0.00</span>
+            </div>
+          </div>
+
+          <!-- Total -->
+          <div class="sidebar-total">
+            <span data-i18n="total_price">Çmimi Total</span>
+            <span id="sidebarTotalPrice">€0.00</span>
+          </div>
+        </div>
+
+        <div class="sidebar-security">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <div>
+            <strong data-i18n="secure_booking">Rezervim i Sigurt</strong>
+            <p data-i18n="secure_desc">Të dhënat tuaja janë të mbrojtura me enkriptim SSL</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-bottom">
+      <span>© <%= new Date().getFullYear() %> Airkosova Network SH.P.K. All Rights Reserved.</span>
+    </div>
+  </footer>
+
+  <!-- WhatsApp Widget -->
+  <a href="https://web.whatsapp.com/send?phone=+38344955955" target="_blank" rel="noopener noreferrer" class="whatsapp-widget" title="Chat with us on WhatsApp">
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  </a>
+
+  <script>
+    // ============================================
+    // DEBUG HELPER
+    // ============================================
+    function debug(category, message, data = null) {
+      const timestamp = new Date().toISOString().substr(11, 12);
+      const prefix = `[${timestamp}] [${category}]`;
+      if (data !== null) {
+        console.log(prefix, message, data);
+      } else {
+        console.log(prefix, message);
+      }
+    }
+
+    debug('INIT', '🚀 Booking page script starting...');
+
+    // ============================================
+    // SUPABASE CONFIGURATION
+    // ============================================
+    const SUPABASE_URL = '<%= typeof supabaseUrl !== "undefined" ? supabaseUrl : "" %>';
+    const SUPABASE_ANON_KEY = '<%= typeof supabaseAnonKey !== "undefined" ? supabaseAnonKey : "" %>';
+    let supabaseClient = null;
+    let currentUser = null;
+
+    debug('SUPABASE', 'URL configured:', SUPABASE_URL ? 'YES' : 'NO');
+    debug('SUPABASE', 'Key configured:', SUPABASE_ANON_KEY ? 'YES' : 'NO');
+    debug('SUPABASE', 'Library loaded:', typeof window.supabase !== 'undefined' ? 'YES' : 'NO');
+
+    // Initialize Supabase
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
+      try {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        debug('SUPABASE', '✅ Client created successfully');
+        initAuth();
+      } catch (err) {
+        debug('SUPABASE', '❌ Failed to create client:', err.message);
+      }
+    } else {
+      debug('SUPABASE', '⚠️ Supabase not initialized - missing config or library');
+    }
+
+    // Get session data
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get('sid') || '';
+    
+    let bookingData = {
+      outbound: null,
+      return: null,
+      tripType: 'roundtrip',
+      adults: 1,
+      children: 0,
+      infants: 0,
+      passengers: [],
+      couponCode: null,
+      discount: 0,
+      userId: null,
+      userEmail: null
+    };
+
+    // ============================================
+    // LOAD FLIGHT SELECTION DATA
+    // ============================================
+    function loadSelectionData() {
+      debug('DATA', '📦 Loading selection data...');
+      debug('DATA', 'Session ID (sid):', sid || '(empty)');
+      
+      // List all sessionStorage keys for debugging
+      debug('DATA', 'Available sessionStorage keys:');
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key.startsWith('ak_')) {
+          debug('DATA', `  - ${key}`);
+        }
+      }
+      
+      try {
+        // Load flight selection
+        const selectionKey = `ak_selection_${sid}`;
+        const selectionRaw = sessionStorage.getItem(selectionKey);
+        debug('DATA', `Looking for key: ${selectionKey}`);
+        debug('DATA', 'Selection raw data:', selectionRaw ? selectionRaw.substring(0, 200) + '...' : '(null)');
+        
+        if (selectionRaw) {
+          const selection = JSON.parse(selectionRaw);
+          bookingData.outbound = selection.outbound;
+          bookingData.return = selection.return;
+          bookingData.tripType = selection.tripType || 'roundtrip';
+          
+          debug('DATA', '✅ Selection loaded successfully');
+          debug('DATA', 'Outbound flight:', bookingData.outbound);
+          debug('DATA', 'Return flight:', bookingData.return);
+          debug('DATA', 'Trip type:', bookingData.tripType);
+          
+          // Enhanced currency debugging
+          console.log('====== CURRENCY DEBUG ON LOAD ======');
+          console.log('Full raw selection:', selectionRaw);
+          console.log('Parsed selection:', selection);
+          console.log('Outbound object:', selection.outbound);
+          console.log('Outbound currency field:', selection.outbound?.currency);
+          console.log('Outbound price field:', selection.outbound?.price);
+          console.log('Return object:', selection.return);
+          console.log('Return currency field:', selection.return?.currency);
+          console.log('Return price field:', selection.return?.price);
+          console.log('=====================================');
+        } else {
+          debug('DATA', '⚠️ No selection found in sessionStorage');
+          debug('DATA', 'This is normal if you navigated directly to /booking without selecting flights');
+        }
+        
+        // Load search payload (passengers, dates, etc)
+        const payloadKey = `ak_payload_${sid}`;
+        const payloadRaw = sessionStorage.getItem(payloadKey);
+        debug('DATA', `Looking for payload key: ${payloadKey}`);
+        
+        if (payloadRaw) {
+          const payload = JSON.parse(payloadRaw);
+          bookingData.adults = parseInt(payload.adults) || 1;
+          bookingData.children = parseInt(payload.children) || 0;
+          bookingData.infants = parseInt(payload.infants) || 0;
+          if (!bookingData.tripType && payload.tripType) {
+            bookingData.tripType = payload.tripType;
+          }
+          debug('DATA', '✅ Payload loaded:', {
+            adults: bookingData.adults,
+            children: bookingData.children,
+            infants: bookingData.infants,
+            tripType: bookingData.tripType
+          });
+        } else {
+          debug('DATA', '⚠️ No payload found');
+        }
+      } catch (e) {
+        debug('DATA', '❌ Error loading selection:', e.message);
+        console.error(e);
+      }
+      
+      debug('DATA', '📊 Final bookingData:', bookingData);
+      updateSidebar();
+      generatePassengerFields();
+    }
+
+    // ============================================
+    // UPDATE SIDEBAR WITH FLIGHT INFO
+    // ============================================
+    function updateSidebar() {
+      debug('SIDEBAR', '🔄 Updating sidebar...');
+      debug('SIDEBAR', 'Has outbound data:', !!bookingData.outbound);
+      debug('SIDEBAR', 'Has return data:', !!bookingData.return);
+      debug('SIDEBAR', 'Trip type:', bookingData.tripType);
+      
+      const isOneWay = bookingData.tripType === 'oneway';
+      
+      // Get sidebar elements
+      const outRouteEl = document.getElementById('sidebarOutRoute');
+      const outTimeEl = document.getElementById('sidebarOutTime');
+      const outDateEl = document.getElementById('sidebarOutDate');
+      const outPriceEl = document.getElementById('sidebarOutPrice');
+      
+      debug('SIDEBAR', 'Sidebar elements found:', {
+        outRoute: !!outRouteEl,
+        outTime: !!outTimeEl,
+        outDate: !!outDateEl,
+        outPrice: !!outPriceEl
+      });
+      
+      // Outbound flight
+      if (bookingData.outbound && bookingData.outbound.fromCode) {
+        const fromCode = bookingData.outbound.fromCode || '—';
+        const toCode = bookingData.outbound.toCode || '—';
+        const depTime = bookingData.outbound.depTime || '';
+        const arrTime = bookingData.outbound.arrTime || '';
+        const outCurrency = detectCurrency(bookingData.outbound) || 'EUR';
+        
+        debug('SIDEBAR', '✈️ Displaying OUTBOUND:', `${fromCode} → ${toCode}, ${depTime}-${arrTime}`);
+        debug('SIDEBAR', 'Outbound currency:', outCurrency);
+        
+        if (outRouteEl) outRouteEl.textContent = `${fromCode} → ${toCode}`;
+        if (outTimeEl) outTimeEl.textContent = depTime && arrTime ? `${depTime} - ${arrTime}` : '—';
+        if (outDateEl) outDateEl.textContent = bookingData.outbound.date || '—';
+        if (outPriceEl) outPriceEl.textContent = formatPrice(bookingData.outbound.price, outCurrency);
+      } else {
+        debug('SIDEBAR', '⚠️ No outbound flight data to display');
+        if (outRouteEl) outRouteEl.textContent = 'Asnjë fluturim i zgjedhur';
+        if (outTimeEl) outTimeEl.textContent = '—';
+        if (outDateEl) outDateEl.textContent = '—';
+        if (outPriceEl) outPriceEl.textContent = '—';
+      }
+      
+      // Return flight
+      const returnCard = document.getElementById('sidebarReturn');
+      const retRouteEl = document.getElementById('sidebarRetRoute');
+      const retTimeEl = document.getElementById('sidebarRetTime');
+      const retDateEl = document.getElementById('sidebarRetDate');
+      const retPriceEl = document.getElementById('sidebarRetPrice');
+      
+      if (returnCard) {
+        if (isOneWay) {
+          debug('SIDEBAR', '🔙 One-way trip - hiding return card');
+          returnCard.style.display = 'none';
+        } else if (bookingData.return && bookingData.return.fromCode) {
+          returnCard.style.display = '';
+          const fromCode = bookingData.return.fromCode || '—';
+          const toCode = bookingData.return.toCode || '—';
+          const depTime = bookingData.return.depTime || '';
+          const arrTime = bookingData.return.arrTime || '';
+          const retCurrency = detectCurrency(bookingData.return) || 'EUR';
+          
+          debug('SIDEBAR', '✈️ Displaying RETURN:', `${fromCode} → ${toCode}, ${depTime}-${arrTime}`);
+          debug('SIDEBAR', 'Return currency:', retCurrency);
+          
+          if (retRouteEl) retRouteEl.textContent = `${fromCode} → ${toCode}`;
+          if (retTimeEl) retTimeEl.textContent = depTime && arrTime ? `${depTime} - ${arrTime}` : '—';
+          if (retDateEl) retDateEl.textContent = bookingData.return.date || '—';
+          if (retPriceEl) retPriceEl.textContent = formatPrice(bookingData.return.price, retCurrency);
+        } else {
+          debug('SIDEBAR', '⚠️ No return flight data to display');
+          returnCard.style.display = '';
+          if (retRouteEl) retRouteEl.textContent = 'Asnjë fluturim i zgjedhur';
+          if (retTimeEl) retTimeEl.textContent = '—';
+          if (retDateEl) retDateEl.textContent = '—';
+          if (retPriceEl) retPriceEl.textContent = '—';
+        }
+      }
+      
+      // Passengers
+      const adultsEl = document.getElementById('sidebarAdults');
+      if (adultsEl) adultsEl.textContent = bookingData.adults;
+      
+      const childrenRow = document.getElementById('sidebarChildrenRow');
+      const infantsRow = document.getElementById('sidebarInfantsRow');
+      const childrenEl = document.getElementById('sidebarChildren');
+      const infantsEl = document.getElementById('sidebarInfants');
+      
+      if (childrenRow && bookingData.children > 0) {
+        childrenRow.style.display = '';
+        if (childrenEl) childrenEl.textContent = bookingData.children;
+      }
+      if (infantsRow && bookingData.infants > 0) {
+        infantsRow.style.display = '';
+        if (infantsEl) infantsEl.textContent = bookingData.infants;
+      }
+      
+      debug('SIDEBAR', '👥 Passengers:', { adults: bookingData.adults, children: bookingData.children, infants: bookingData.infants });
+      
+      // Calculate total and update summary
+      calculateTotal();
+      updateSelectedSummary();
+      
+      debug('SIDEBAR', '✅ Sidebar update complete');
+    }
+
+    function formatPrice(price, currency) {
+      // Clean up the price - remove any existing currency symbols and normalize
+      let priceStr = String(price || '0');
+      // Remove currency symbols and text that might be in the price
+      priceStr = priceStr.replace(/€|CHF|EUR/gi, '').trim();
+      // Handle European number format (comma as decimal separator)
+      // If there's a comma followed by 2 digits at the end, it's a decimal separator
+      if (/,\d{2}$/.test(priceStr)) {
+        priceStr = priceStr.replace(/\./g, '').replace(',', '.');
+      } else {
+        // Otherwise just remove commas (thousand separators)
+        priceStr = priceStr.replace(/,/g, '');
+      }
+      
+      const num = parseFloat(priceStr);
+      
+      // Determine currency symbol
+      const c = (currency || '').toUpperCase();
+      let symbol;
+      if (c === 'CHF') {
+        symbol = 'CHF ';
+      } else {
+        symbol = '€';
+      }
+      
+      if (!Number.isFinite(num) || num === 0) return `${symbol}0.00`;
+      return `${symbol}${num.toFixed(2)}`;
+    }
+
+    function parseNumericPrice(price) {
+      // Clean up the price - remove any existing currency symbols and normalize
+      let priceStr = String(price || '0');
+      // Remove currency symbols and text
+      priceStr = priceStr.replace(/€|CHF|EUR/gi, '').trim();
+      // Handle European number format (comma as decimal separator)
+      if (/,\d{2}$/.test(priceStr)) {
+        priceStr = priceStr.replace(/\./g, '').replace(',', '.');
+      } else {
+        priceStr = priceStr.replace(/,/g, '');
+      }
+      const num = parseFloat(priceStr);
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    // Detect currency from flight data - checks multiple sources
+    function detectCurrency(flight) {
+      console.log('====== DETECT CURRENCY ======');
+      console.log('Flight object:', flight);
+      
+      if (!flight) {
+        console.log('Result: null (no flight data)');
+        console.log('=============================');
+        return null;
+      }
+      
+      // Check direct currency field FIRST
+      console.log('Checking flight.currency:', flight.currency);
+      if (flight.currency) {
+        const c = String(flight.currency).toUpperCase().trim();
+        console.log('Normalized currency:', c);
+        if (c === 'CHF' || c === 'EUR') {
+          console.log('Result:', c, '(from direct currency field)');
+          console.log('=============================');
+          return c;
+        }
+      }
+      
+      // Check if price string contains currency
+      const priceStr = String(flight.price || '');
+      console.log('Checking price string:', priceStr);
+      if (/CHF/i.test(priceStr)) {
+        console.log('Result: CHF (found in price string)');
+        console.log('=============================');
+        return 'CHF';
+      }
+      if (/€|EUR/i.test(priceStr)) {
+        console.log('Result: EUR (found in price string)');
+        console.log('=============================');
+        return 'EUR';
+      }
+      
+      console.log('Result: null (no currency found)');
+      console.log('=============================');
+      return null;
+    }
+
+    function calculateTotal() {
+      debug('PRICE', '💰 Calculating total...');
+      
+      let total = 0;
+      const totalPassengers = bookingData.adults + bookingData.children + bookingData.infants;
+      
+      // Determine currency from flights (prefer outbound, fallback to return)
+      let currency = detectCurrency(bookingData.outbound) || detectCurrency(bookingData.return) || 'EUR';
+      
+      debug('PRICE', 'Outbound currency field:', bookingData.outbound?.currency);
+      debug('PRICE', 'Return currency field:', bookingData.return?.currency);
+      debug('PRICE', 'Final currency detected:', currency);
+      debug('PRICE', 'Total passengers:', totalPassengers);
+      
+      if (bookingData.outbound && bookingData.outbound.price) {
+        const price = parseNumericPrice(bookingData.outbound.price);
+        debug('PRICE', 'Outbound price per person:', price);
+        total += price * totalPassengers;
+      }
+      
+      if (bookingData.tripType !== 'oneway' && bookingData.return && bookingData.return.price) {
+        const price = parseNumericPrice(bookingData.return.price);
+        debug('PRICE', 'Return price per person:', price);
+        total += price * totalPassengers;
+      }
+      
+      // Apply discount
+      total -= bookingData.discount;
+      if (total < 0) total = 0;
+      
+      debug('PRICE', 'Total before formatting:', total);
+      
+      const totalEl = document.getElementById('sidebarTotalPrice');
+      if (totalEl) {
+        const formatted = formatPrice(total, currency);
+        debug('PRICE', 'Formatted total:', formatted);
+        totalEl.textContent = formatted;
+      }
+      
+      // Store the detected currency for use elsewhere
+      bookingData.detectedCurrency = currency;
+    }
+
+    // ============================================
+    // UPDATE SELECTED SUMMARY (Step 2)
+    // ============================================
+    function updateSelectedSummary() {
+      debug('SUMMARY', '🔄 Updating selected summary (Step 2 section)...');
+      
+      const wrap = document.getElementById('selectedSummary');
+      if (!wrap) {
+        debug('SUMMARY', '⚠️ selectedSummary element not found in DOM');
+        return;
+      }
+
+      const isOneWay = bookingData.tripType === 'oneway';
+      const hasOut = bookingData.outbound && bookingData.outbound.fromCode;
+      const hasRet = bookingData.return && bookingData.return.fromCode;
+      
+      debug('SUMMARY', 'Status:', { hasOutbound: hasOut, hasReturn: hasRet, isOneWay: isOneWay });
+      
+      // Show/hide the summary section
+      wrap.style.display = hasOut ? '' : 'none';
+      debug('SUMMARY', 'Summary section display:', hasOut ? 'visible' : 'hidden');
+
+      // Update total
+      const totalPassengers = bookingData.adults + bookingData.children + bookingData.infants;
+      const totalEl = document.getElementById('selectedSummaryTotal');
+      if (totalEl) totalEl.textContent = document.getElementById('sidebarTotalPrice')?.textContent || '—';
+
+      // Outbound flight summary
+      if (hasOut) {
+        const outRouteEl = document.getElementById('selectedOutRoute');
+        const outTimeEl = document.getElementById('selectedOutTime');
+        const outDateEl = document.getElementById('selectedOutDate');
+        const outPriceEl = document.getElementById('selectedOutPrice');
+        
+        const fromCode = bookingData.outbound.fromCode || '—';
+        const toCode = bookingData.outbound.toCode || '—';
+        const depTime = bookingData.outbound.depTime || '—';
+        const arrTime = bookingData.outbound.arrTime || '—';
+        const date = bookingData.outbound.date || '—';
+        const outCurrency = detectCurrency(bookingData.outbound) || 'EUR';
+        
+        debug('SUMMARY', '✈️ Setting outbound:', `${fromCode}→${toCode}, ${depTime}-${arrTime}, ${date}`);
+        debug('SUMMARY', 'Outbound currency:', outCurrency);
+        
+        if (outRouteEl) outRouteEl.textContent = `${fromCode} → ${toCode}`;
+        if (outTimeEl) outTimeEl.textContent = `${depTime} - ${arrTime}`;
+        if (outDateEl) outDateEl.textContent = date;
+        if (outPriceEl) outPriceEl.textContent = formatPrice(bookingData.outbound.price, outCurrency);
+      }
+
+      // Return flight summary
+      const retCard = document.getElementById('selectedSummaryReturn');
+      if (retCard) {
+        retCard.style.display = isOneWay ? 'none' : '';
+        
+        if (!isOneWay && hasRet) {
+          const retRouteEl = document.getElementById('selectedRetRoute');
+          const retTimeEl = document.getElementById('selectedRetTime');
+          const retDateEl = document.getElementById('selectedRetDate');
+          const retPriceEl = document.getElementById('selectedRetPrice');
+          
+          const fromCode = bookingData.return.fromCode || '—';
+          const toCode = bookingData.return.toCode || '—';
+          const depTime = bookingData.return.depTime || '—';
+          const arrTime = bookingData.return.arrTime || '—';
+          const date = bookingData.return.date || '—';
+          const retCurrency = detectCurrency(bookingData.return) || 'EUR';
+          
+          debug('SUMMARY', '✈️ Setting return:', `${fromCode}→${toCode}, ${depTime}-${arrTime}, ${date}`);
+          debug('SUMMARY', 'Return currency:', retCurrency);
+          
+          if (retRouteEl) retRouteEl.textContent = `${fromCode} → ${toCode}`;
+          if (retTimeEl) retTimeEl.textContent = `${depTime} - ${arrTime}`;
+          if (retDateEl) retDateEl.textContent = date;
+          if (retPriceEl) retPriceEl.textContent = formatPrice(bookingData.return.price, retCurrency);
+        } else if (!isOneWay) {
+          debug('SUMMARY', '⚠️ No return flight data for round trip');
+          const retRouteEl = document.getElementById('selectedRetRoute');
+          const retTimeEl = document.getElementById('selectedRetTime');
+          const retDateEl = document.getElementById('selectedRetDate');
+          const retPriceEl = document.getElementById('selectedRetPrice');
+          if (retRouteEl) retRouteEl.textContent = '—';
+          if (retTimeEl) retTimeEl.textContent = '—';
+          if (retDateEl) retDateEl.textContent = '—';
+          if (retPriceEl) retPriceEl.textContent = '—';
+        }
+      }
+
+      debug('SUMMARY', '✅ Selected summary update complete');
+    }
+
+    function generatePassengerFields() {
+      const container = document.getElementById('passengerFields');
+      const totalPassengers = bookingData.adults + bookingData.children + bookingData.infants;
+      let html = '';
+      let passengerIndex = 0;
+
+      // Adults
+      for (let i = 0; i < bookingData.adults; i++) {
+        html += generatePassengerFieldset(passengerIndex, 'adult', i + 1);
+        passengerIndex++;
+      }
+      
+      // Children
+      for (let i = 0; i < bookingData.children; i++) {
+        html += generatePassengerFieldset(passengerIndex, 'child', i + 1);
+        passengerIndex++;
+      }
+      
+      // Infants
+      for (let i = 0; i < bookingData.infants; i++) {
+        html += generatePassengerFieldset(passengerIndex, 'infant', i + 1);
+        passengerIndex++;
+      }
+      
+      container.innerHTML = html;
+    }
+
+    function generatePassengerFieldset(index, type, num) {
+      const typeLabels = {
+        adult: translations[currentLang]?.adult || 'I rritur',
+        child: translations[currentLang]?.child || 'Fëmijë',
+        infant: translations[currentLang]?.infant || 'Foshnjë'
+      };
+      
+      return `
+        <fieldset class="passenger-fieldset">
+          <legend>${typeLabels[type]} ${num}</legend>
+          <div class="form-row form-row-3">
+            <div class="form-field">
+              <label data-i18n="field_salutation">Titulli</label>
+              <select name="passenger_${index}_salutation" required>
+                <option value="">Zgjidhni...</option>
+                <option value="mr">Z. (Mr.)</option>
+                <option value="mrs">Znj. (Mrs.)</option>
+                <option value="ms">Znj. (Ms.)</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label data-i18n="field_firstname">Emri</label>
+              <input type="text" name="passenger_${index}_firstName" placeholder="John" required />
+            </div>
+            <div class="form-field">
+              <label data-i18n="field_lastname">Mbiemri</label>
+              <input type="text" name="passenger_${index}_lastName" placeholder="Doe" required />
+            </div>
+          </div>
+          ${type === 'child' || type === 'infant' ? `
+          <div class="form-row">
+            <div class="form-field">
+              <label data-i18n="field_dob">Data e Lindjes</label>
+              <input type="date" name="passenger_${index}_dob" required />
+            </div>
+          </div>
+          ` : ''}
+        </fieldset>
+      `;
+    }
+
+    // Step navigation
+    let currentStep = 1;
+    
+    function goToStep(step) {
+      document.querySelectorAll('.booking-step').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.progress-step').forEach(el => {
+        el.classList.remove('active', 'completed');
+        if (parseInt(el.dataset.step) < step) el.classList.add('completed');
+        if (parseInt(el.dataset.step) === step) el.classList.add('active');
+      });
+      
+      const stepEl = document.getElementById('step' + step);
+      if (stepEl) stepEl.style.display = '';
+      currentStep = step;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Auth initialization
+    async function initAuth() {
+      if (!supabaseClient) return;
+      
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+          currentUser = user;
+          bookingData.userId = user.id;
+          bookingData.userEmail = user.email;
+          showLoggedInState(user);
+        }
+
+        // Listen for auth state changes
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+          if (session?.user) {
+            currentUser = session.user;
+            bookingData.userId = session.user.id;
+            bookingData.userEmail = session.user.email;
+            showLoggedInState(session.user);
+          } else {
+            currentUser = null;
+            bookingData.userId = null;
+            bookingData.userEmail = null;
+          }
+        });
+      } catch (e) {
+        console.error('Auth init error:', e);
+      }
+    }
+
+    function showLoggedInState(user) {
+      // Hide login/register forms, show logged in message
+      const step1 = document.getElementById('step1');
+      if (step1) {
+        step1.innerHTML = `
+          <div class="logged-in-welcome">
+            <div class="user-avatar-large">${user.email.charAt(0).toUpperCase()}</div>
+            <h2 data-i18n="welcome_logged_in">Mirë se erdhe!</h2>
+            <p class="user-email-display">${user.email}</p>
+            <p class="step-description" data-i18n="logged_in_desc">Ju jeni kyçur. Vazhdoni me rezervimin.</p>
+            <div class="logged-in-actions">
+              <button type="button" class="btn booking-btn" id="btnContinueLoggedIn" data-i18n="btn_continue">Vazhdo</button>
+              <button type="button" class="btn secondary" id="btnLogoutBooking" data-i18n="btn_logout">Dil nga Llogaria</button>
+            </div>
+          </div>
+        `;
+        
+        document.getElementById('btnContinueLoggedIn')?.addEventListener('click', () => goToStep(2));
+        document.getElementById('btnLogoutBooking')?.addEventListener('click', async () => {
+          if (supabaseClient) {
+            await supabaseClient.auth.signOut();
+            location.reload();
+          }
+        });
+        
+        applyTranslations(currentLang);
+      }
+    }
+
+    // ============================================
+    // AUTH TABS - Login/Register switching
+    // ============================================
+    function initAuthTabs() {
+      debug('TABS', '🔧 Initializing auth tabs...');
+      
+      const tabLogin = document.getElementById('tabLoginBooking');
+      const tabRegister = document.getElementById('tabRegisterBooking');
+      const loginForm = document.getElementById('bookingLoginForm');
+      const registerForm = document.getElementById('bookingRegisterForm');
+
+      debug('TABS', 'Elements found:', {
+        tabLogin: !!tabLogin,
+        tabRegister: !!tabRegister,
+        loginForm: !!loginForm,
+        registerForm: !!registerForm
+      });
+
+      if (tabLogin && tabRegister && loginForm && registerForm) {
+        debug('TABS', '✅ All elements found, attaching listeners...');
+        
+        // Direct event listeners (no cloning needed with type="button")
+        tabLogin.onclick = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          debug('TABS', '👆 Login tab clicked!');
+          tabLogin.classList.add('active');
+          tabRegister.classList.remove('active');
+          loginForm.style.display = 'block';
+          registerForm.style.display = 'none';
+          debug('TABS', 'Switched to LOGIN form');
+        };
+
+        tabRegister.onclick = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          debug('TABS', '👆 Register tab clicked!');
+          tabRegister.classList.add('active');
+          tabLogin.classList.remove('active');
+          registerForm.style.display = 'block';
+          loginForm.style.display = 'none';
+          debug('TABS', 'Switched to REGISTER form');
+        };
+        
+        debug('TABS', '✅ Event listeners attached successfully');
+      } else {
+        debug('TABS', '❌ Some elements not found - cannot initialize tabs');
+      }
+    }
+    
+    // Initialize tabs when DOM is ready
+    debug('TABS', 'Document readyState:', document.readyState);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        debug('TABS', 'DOMContentLoaded fired, initializing tabs...');
+        initAuthTabs();
+      });
+    } else {
+      debug('TABS', 'DOM already ready, initializing tabs immediately...');
+      initAuthTabs();
+    }
+
+    // Login form with Supabase
+    document.getElementById('bookingLoginForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = e.target.email.value;
+      const password = e.target.password.value;
+      const errorEl = document.getElementById('loginBookingError');
+      const btn = e.target.querySelector('button[type="submit"]');
+      
+      errorEl.style.display = 'none';
+
+      // Demo mode: if no Supabase, allow proceeding with email as user ID
+      if (!supabaseClient) {
+        bookingData.userId = 'demo_' + Date.now();
+        bookingData.userEmail = email;
+        goToStep(2);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = translations[currentLang]?.signing_in || 'Duke u kyçur...';
+
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+          errorEl.textContent = error.message;
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = translations[currentLang]?.btn_login || 'Hyr';
+          return;
+        }
+
+        if (data.user) {
+          currentUser = data.user;
+          bookingData.userId = data.user.id;
+          bookingData.userEmail = data.user.email;
+          goToStep(2);
+        }
+      } catch (err) {
+        errorEl.textContent = err.message || 'Login failed';
+        errorEl.style.display = 'block';
+      }
+      
+      btn.disabled = false;
+      btn.textContent = translations[currentLang]?.btn_login || 'Hyr';
+    });
+
+    // Register form with Supabase
+    document.getElementById('bookingRegisterForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const email = formData.get('email');
+      const password = formData.get('password');
+      const confirmPassword = formData.get('confirmPassword');
+      const firstName = formData.get('firstName');
+      const lastName = formData.get('lastName');
+      const phonePrefix = formData.get('phonePrefix') || '+383';
+      const phoneNumber = formData.get('phoneNumber') || '';
+      const mobile = `${phonePrefix} ${phoneNumber}`.trim();
+      const salutation = formData.get('salutation');
+      
+      const errorEl = document.getElementById('registerBookingError');
+      const successEl = document.getElementById('registerBookingSuccess');
+      const btn = e.target.querySelector('button[type="submit"]');
+      
+      errorEl.style.display = 'none';
+      successEl.style.display = 'none';
+      
+      if (password !== confirmPassword) {
+        errorEl.textContent = translations[currentLang]?.passwords_not_match || 'Fjalëkalimet nuk përputhen';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      // Demo mode: if no Supabase, allow proceeding with email as user ID
+      if (!supabaseClient) {
+        bookingData.userId = 'demo_' + Date.now();
+        bookingData.userEmail = email;
+        successEl.textContent = 'Demo mode: Account created!';
+        successEl.style.display = 'block';
+        setTimeout(() => goToStep(2), 1000);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = translations[currentLang]?.creating_account || 'Duke krijuar llogari...';
+
+      try {
+        const { data, error } = await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              full_name: `${firstName} ${lastName}`,
+              phone: mobile,
+              salutation: salutation
+            }
+          }
+        });
+        
+        if (error) {
+          errorEl.textContent = error.message;
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = translations[currentLang]?.btn_register || 'Krijo Llogari';
+          return;
+        }
+
+        if (data.user) {
+          // Check if email confirmation is required
+          if (data.user.identities && data.user.identities.length === 0) {
+            successEl.textContent = translations[currentLang]?.check_email || 'Kontrolloni email-in tuaj për të konfirmuar llogarinë!';
+            successEl.style.display = 'block';
+          } else {
+            currentUser = data.user;
+            bookingData.userId = data.user.id;
+            bookingData.userEmail = data.user.email;
+            successEl.textContent = translations[currentLang]?.account_created || 'Llogaria u krijua me sukses!';
+            successEl.style.display = 'block';
+            setTimeout(() => goToStep(2), 1500);
+          }
+        }
+      } catch (err) {
+        errorEl.textContent = err.message || 'Registration failed';
+        errorEl.style.display = 'block';
+      }
+      
+      btn.disabled = false;
+      btn.textContent = translations[currentLang]?.btn_register || 'Krijo Llogari';
+    });
+
+    // Forgot password
+    document.querySelector('.forgot-link')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      
+      const email = prompt(translations[currentLang]?.enter_email || 'Shkruani email-in tuaj:');
+      if (!email) return;
+
+      if (!supabaseClient) {
+        alert(translations[currentLang]?.auth_not_configured || 'Authentication not configured');
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/'
+        });
+        
+        if (error) {
+          alert(error.message);
+        } else {
+          alert(translations[currentLang]?.reset_email_sent || 'Email i dërguar! Kontrolloni inbox-in tuaj.');
+        }
+      } catch (err) {
+        alert(err.message || 'Failed to send reset email');
+      }
+    });
+
+    // Passenger form
+    document.getElementById('passengerForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      // Collect passenger data
+      const formData = new FormData(e.target);
+      const totalPassengers = bookingData.adults + bookingData.children + bookingData.infants;
+      
+      bookingData.passengers = [];
+      for (let i = 0; i < totalPassengers; i++) {
+        bookingData.passengers.push({
+          salutation: formData.get(`passenger_${i}_salutation`),
+          firstName: formData.get(`passenger_${i}_firstName`),
+          lastName: formData.get(`passenger_${i}_lastName`),
+          dob: formData.get(`passenger_${i}_dob`) || null
+        });
+      }
+      
+      goToStep(3);
+    });
+
+    // Apply coupon
+    document.getElementById('btnApplyCoupon')?.addEventListener('click', () => {
+      const code = document.querySelector('input[name="couponCode"]').value.trim().toUpperCase();
+      const msgEl = document.getElementById('couponMessage');
+      
+      // Mock coupon codes
+      const coupons = {
+        'SUMMER2026': { discount: 10, type: 'percent' },
+        'WELCOME10': { discount: 10, type: 'fixed' },
+        'AIRKOSOVA': { discount: 5, type: 'percent' }
+      };
+      
+      if (coupons[code]) {
+        const coupon = coupons[code];
+        let discountAmount = 0;
+        let total = 0;
+        
+        const totalPassengers = bookingData.adults + bookingData.children + bookingData.infants;
+        if (bookingData.outbound?.price) total += parseFloat(bookingData.outbound.price) * totalPassengers;
+        if (bookingData.tripType !== 'oneway' && bookingData.return?.price) total += parseFloat(bookingData.return.price) * totalPassengers;
+        
+        if (coupon.type === 'percent') {
+          discountAmount = total * (coupon.discount / 100);
+        } else {
+          discountAmount = coupon.discount;
+        }
+        
+        bookingData.couponCode = code;
+        bookingData.discount = discountAmount;
+        
+        // Use the correct currency from flights
+        const currency = detectCurrency(bookingData.outbound) || detectCurrency(bookingData.return) || 'EUR';
+        const currencySymbol = currency === 'CHF' ? 'CHF ' : '€';
+        
+        document.getElementById('sidebarDiscount').style.display = '';
+        document.getElementById('sidebarDiscountAmount').textContent = `-${currencySymbol}${discountAmount.toFixed(2)}`;
+        
+        msgEl.textContent = `Kodi "${code}" u aplikua me sukses!`;
+        msgEl.className = 'coupon-message success';
+        
+        calculateTotal();
+      } else {
+        msgEl.textContent = 'Kodi i pavlefshëm';
+        msgEl.className = 'coupon-message error';
+      }
+    });
+
+    // Complete booking
+    document.getElementById('paymentForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      // Require login for booking completion
+      if (!bookingData.userId) {
+        goToStep(1);
+        return;
+      }
+      
+      // Generate booking reference
+      const ref = 'AK-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+      document.getElementById('bookingReference').textContent = ref;
+      
+      // Show confirmation
+      document.querySelectorAll('.booking-step').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.progress-step').forEach(el => el.classList.add('completed'));
+      document.getElementById('stepConfirmation').style.display = '';
+
+      startConfetti();
+      
+      // Clear session data
+      try {
+        sessionStorage.removeItem(`ak_selection_${sid}`);
+        sessionStorage.removeItem(`ak_payload_${sid}`);
+      } catch (_) {}
+    });
+
+    // Use shared translations
+    const translations = AK_TRANSLATIONS;
+    let currentLang = AK_CURRENT_LANG;
+
+    // Lightweight confetti
+    function startConfetti() {
+      try {
+        const host = document.createElement('div');
+        host.className = 'confetti';
+        const colors = ['#24a8de', '#1e609b', '#ffffff'];
+        const pieces = 70;
+        for (let i = 0; i < pieces; i++) {
+          const p = document.createElement('span');
+          p.className = 'confetti-piece';
+          p.style.left = `${Math.random() * 100}%`;
+          p.style.background = colors[i % colors.length];
+          p.style.animationDelay = `${Math.random() * 0.8}s`;
+          p.style.animationDuration = `${2.2 + Math.random() * 1.2}s`;
+          p.style.transform = `rotate(${Math.random() * 360}deg)`;
+          host.appendChild(p);
+        }
+        document.body.appendChild(host);
+        setTimeout(() => host.remove(), 4500);
+      } catch (_) {}
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    debug('INIT', '🎬 Starting initialization...');
+    debug('INIT', 'Current URL:', window.location.href);
+    debug('INIT', 'Session ID from URL:', sid || '(none)');
+    
+    // Load flight selection data
+    loadSelectionData();
+    
+    debug('INIT', '✅ Booking page initialization complete!');
+    debug('INIT', '==================================================');
+    debug('INIT', '📋 DEBUGGING TIPS:');
+    debug('INIT', '  - Check TABS logs for tab switching issues');
+    debug('INIT', '  - Check DATA logs for flight data loading');
+    debug('INIT', '  - Check SIDEBAR logs for display issues');
+    debug('INIT', '  - Check SUPABASE logs for auth issues');
+    debug('INIT', '==================================================');
+  </script>
+</body>
+</html>
+
