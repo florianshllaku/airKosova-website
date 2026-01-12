@@ -859,6 +859,73 @@ function renderFlights(data) {
   const outDates = buildDatesFromByDate(outByDate, outLabelLookup);
   const retDates = buildDatesFromByDate(retByDate, retLabelLookup);
 
+  // ============================
+  // Empty state (no flights)
+  // ============================
+  const hasAnyOutbound = Object.values(outByDate || {}).some((arr) => Array.isArray(arr) && arr.length > 0);
+  if (!hasAnyOutbound) {
+    const resultsView = getEl('resultsView');
+    if (resultsView) resultsView.style.display = '';
+
+    // Hide flight sections so user doesn't see empty boxes
+    const outboundSection = getEl('outboundSection');
+    const returnSection = getEl('returnSection');
+    const continueBar = getEl('bookingSummary');
+    if (outboundSection) outboundSection.style.display = 'none';
+    if (returnSection) returnSection.style.display = 'none';
+    if (continueBar) continueBar.style.display = 'none';
+
+    const title = (typeof window.t === 'function' && window.t('no_flights_title')) || 'Nuk u gjetën fluturime';
+    // Prefer server-provided hint when available (scraper detected no-results text)
+    const serverHint = data?.meta?.noResultsInfo?.reason ? String(data.meta.noResultsInfo.reason) : '';
+    const desc =
+      (typeof window.t === 'function' && window.t('no_flights_desc')) ||
+      'Nuk ka fluturime të disponueshme për këtë itinerar / datë. Ju lutem provoni data të tjera.';
+
+    const host = getEl('akEmptyState') || (() => {
+      const el = document.createElement('div');
+      el.id = 'akEmptyState';
+      el.className = 'empty-state';
+      const container = getEl('results') || document.body;
+      container.prepend(el);
+      return el;
+    })();
+
+    host.innerHTML = `
+      <div class="empty-card">
+        <div class="empty-icon">✈</div>
+        <h2 class="empty-title">${escapeHtml(title)}</h2>
+        <p class="empty-desc">${escapeHtml(desc)}</p>
+        ${serverHint ? `<div class="empty-hint">debug: ${escapeHtml(serverHint)}</div>` : ''}
+        <div class="empty-actions">
+          <a class="btn booking-btn" href="/">${escapeHtml((typeof window.t === 'function' && window.t('btn_back_home')) || 'Kthehu në fillim')}</a>
+          <button type="button" class="btn secondary" id="btnTryAgain">${escapeHtml((typeof window.t === 'function' && window.t('btn_try_again')) || 'Provo përsëri')}</button>
+        </div>
+      </div>
+    `;
+
+    host.querySelector('#btnTryAgain')?.addEventListener('click', () => {
+      // Re-run scrape using same sid/payload, no navigation
+      const btn = host.querySelector('#btnTryAgain');
+      if (btn) btn.setAttribute('disabled', 'true');
+      const params = new URLSearchParams(window.location.search);
+      const sid = params.get('sid') || '';
+      if (!sid) return window.location.reload();
+      // Trigger the existing runScrape flow by reloading (safe + simplest)
+      window.location.reload();
+    });
+
+    return;
+  } else {
+    // If flights exist, ensure empty state is hidden
+    const host = getEl('akEmptyState');
+    if (host) host.remove();
+    const outboundSection = getEl('outboundSection');
+    const returnSection = getEl('returnSection');
+    if (outboundSection) outboundSection.style.display = '';
+    if (returnSection) returnSection.style.display = '';
+  }
+
   // Default active date:
   // - if the selected date exists, open that
   // - otherwise open the nearest available date (chronologically closest)

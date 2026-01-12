@@ -460,36 +460,124 @@ async function searchFlights(input) {
     // Small pause so the results view is visible even on fast machines
     await page.waitForTimeout(fastMode ? 150 : 800);
 
-    // Wait for results tables TBODY (outbound required).
-    // IMPORTANT: do NOT swallow this wait; if it fails, we want a clear error (not a misleading empty result).
-    await page.waitForSelector('#div_hin > table > tbody', { timeout: 90000 });
-    if (tripType !== 'oneway') {
-      // For roundtrip, require SOME return tbody. The site sometimes uses a slightly different table nesting.
-      await page.waitForSelector('#div_ruk > table > tbody, #div_ruk table tbody', { timeout: 90000 });
-    }
+    // Wait for results to either:
+    // - show the results table(s), OR
+    // - show a "no flights" state.
+    //
+    // We treat "no flights" as a successful scrape with empty data (customer-friendly),
+    // rather than throwing a hard timeout error.
+    let noResultsSignal = null;
+    const waitForResultsOrNoResults = async () => {
+      const timeoutMs = 90000;
+      const startedAt = Date.now();
+      let lastState = null;
+
+      while (Date.now() - startedAt < timeoutMs) {
+        lastState = await page.evaluate(({ tripType }) => {
+          const pick = (sels) => {
+            for (const s of sels) {
+              const el = document.querySelector(s);
+              if (el) return { sel: s, has: true, rows: el.querySelectorAll('tr').length };
+            }
+            return { sel: null, has: false, rows: 0 };
+          };
+
+          const out = pick(['#div_hin > table > tbody', '#div_hin table tbody']);
+          const ret = pick(['#div_ruk > table > tbody', '#div_ruk table tbody']);
+
+          // Try to detect "no results" copy rendered by the provider.
+          // This is intentionally broad to support multiple languages / templates.
+          const scopeText =
+            (document.querySelector('#div_hin')?.innerText) ||
+            (document.querySelector('#content')?.innerText) ||
+            (document.body?.innerText) ||
+            '';
+          const text = String(scopeText).replace(/\s+/g, ' ').trim();
+          const low = text.toLowerCase();
+          const noWords = [
+            'keine', 'keine fl', 'keine verfügb', 'keine verbindung',
+            'no flights', 'no flight', 'no results', 'not available', 'no availability',
+            'nuk ka', 'asnjë fl', 'asnje fl', "s'ka", 'ska'
+          ];
+          const hasNoText = noWords.some((w) => low.includes(w));
+
+          const hasOutbound = out.has;
+          const hasReturn = ret.has;
+
+          // We consider it "ready" as soon as outbound tbody exists.
+          // If outbound tbody never appears but the site renders a "no flights" message,
+          // we treat it as no-results instead of failing.
+          const ready = hasOutbound || hasNoText;
+          return {
+            ready,
+            out,
+            ret,
+            hasNoText,
+            // Keep a small snippet for debugging in server logs / reports
+            snippet: text.slice(0, 260)
+          };
+        }, { tripType });
+
+        if (lastState?.ready) return { kind: lastState.out?.has ? 'tables' : 'no_results', state: lastState };
+        await page.waitForTimeout(500);
+      }
+      return { kind: 'timeout', state: lastState };
+    };
+
+    const waitRes = await waitForResultsOrNoResults();
     tTablesReady = Date.now();
 
+    if (waitRes.kind === 'timeout') {
+      // Still fail hard on real timeouts (likely provider site slow/down or selectors changed)
+      throw new Error(`Timeout waiting for results UI (90s). lastSnippet=${waitRes?.state?.snippet || '—'}`);
+    }
+    if (waitRes.kind === 'no_results') {
+      noResultsSignal = { reason: 'provider_no_results_text', snippet: waitRes?.state?.snippet || null };
+    }
+
     // Give the page time to finish populating the TBODY rows (they can load progressively).
-    await waitForRowCountToStabilize(page, '#div_hin > table > tbody', {
-      timeoutMs: fastMode ? 25000 : 40000,
-      pollMs: fastMode ? 200 : 300,
-      stableRounds: fastMode ? 3 : 4
-    });
-    if (tripType !== 'oneway') {
-      // Stabilize whichever return tbody exists; prefer the strict selector first.
-      const hasStrictReturnTbody = await page.locator('#div_ruk > table > tbody').count().catch(() => 0);
-      const returnTbodySel = hasStrictReturnTbody ? '#div_ruk > table > tbody' : '#div_ruk table tbody';
-      await waitForRowCountToStabilize(page, returnTbodySel, {
-        timeoutMs: fastMode ? 40000 : 60000,
+    // If we already detected a provider "no results" message and we don't have a tbody,
+    // skip stabilization waits (there is nothing to stabilize).
+    const hasOutTbody =
+      (await page.locator('#div_hin > table > tbody').count().catch(() => 0)) > 0 ||
+      (await page.locator('#div_hin table tbody').count().catch(() => 0)) > 0;
+
+    if (hasOutTbody) {
+      const outTbodySel =
+        (await page.locator('#div_hin > table > tbody').count().catch(() => 0)) > 0
+          ? '#div_hin > table > tbody'
+          : '#div_hin table tbody';
+
+      await waitForRowCountToStabilize(page, outTbodySel, {
+        timeoutMs: fastMode ? 25000 : 40000,
         pollMs: fastMode ? 200 : 300,
         stableRounds: fastMode ? 3 : 4
       });
+
+      if (tripType !== 'oneway') {
+        const hasReturnTbody =
+          (await page.locator('#div_ruk > table > tbody').count().catch(() => 0)) > 0 ||
+          (await page.locator('#div_ruk table tbody').count().catch(() => 0)) > 0;
+        if (hasReturnTbody) {
+          const hasStrictReturnTbody = (await page.locator('#div_ruk > table > tbody').count().catch(() => 0)) > 0;
+          const returnTbodySel = hasStrictReturnTbody ? '#div_ruk > table > tbody' : '#div_ruk table tbody';
+          await waitForRowCountToStabilize(page, returnTbodySel, {
+            timeoutMs: fastMode ? 40000 : 60000,
+            pollMs: fastMode ? 200 : 300,
+            stableRounds: fastMode ? 3 : 4
+          });
+        } else if (!noResultsSignal) {
+          // If we don't see a return tbody yet, this might be the "select outbound first" flow.
+          // We'll handle it below (click outbound option and wait for return rows).
+        }
+      }
     }
 
     // Some flows only populate the return table AFTER an outbound option is selected.
     // If return tbody exists but is still empty, click the first outbound option and wait again.
     if (tripType !== 'oneway') {
-      const outRowCount = await page.locator('#div_hin > table > tbody > tr').count().catch(() => 0);
+      const outRowCount =
+        await page.locator('#div_hin > table > tbody > tr, #div_hin table tbody > tr').count().catch(() => 0);
       const hasStrictReturnTbody = await page.locator('#div_ruk > table > tbody').count().catch(() => 0);
       const returnTbodySel = hasStrictReturnTbody ? '#div_ruk > table > tbody' : '#div_ruk table tbody';
       let retRowCount = await page.locator(`${returnTbodySel} > tr`).count().catch(() => 0);
@@ -767,6 +855,17 @@ async function searchFlights(input) {
     }, { depYear, retYear });
     tScraped = Date.now();
 
+    // Determine "no flights" (customer-facing) based on scraped content.
+    // We mark it when outbound has no rows AND no dates (meaning: nothing to show).
+    const outboundHasRows =
+      (scraped?.outbound?.debug?.rowCount || 0) > 0 ||
+      (Array.isArray(scraped?.outbound?.dates) && scraped.outbound.dates.length > 0);
+    const noResultsFinal = !outboundHasRows;
+    if (noResultsFinal && !noResultsSignal) {
+      // If we didn't catch an explicit message, treat it as empty results anyway.
+      noResultsSignal = { reason: 'empty_tables_or_no_table', snippet: null };
+    }
+
     // Keep browser open (headed) if requested
     if (!headless && keepMsEffective > 0) {
       await sleep(keepMsEffective);
@@ -813,6 +912,8 @@ async function searchFlights(input) {
         url: page.url(),
         warmPage: true,
         keepReady: !!keepReady,
+        noResults: !!noResultsSignal,
+        noResultsInfo: noResultsSignal || null,
         pool: {
           browsers: pool.browsers.length,
           tabsPerBrowser: pool.browsers[0]?.pages?.length || 0,

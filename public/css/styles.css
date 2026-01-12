@@ -2207,6 +2207,65 @@ body.results-page {
   transform: none;
 }
 
+/* Empty state (Results Page) */
+.empty-state {
+  max-width: 80%;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-5) 0;
+}
+
+.empty-card {
+  padding: var(--space-7);
+  border-radius: var(--radius-xl);
+  background: var(--white);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--gray-100);
+  text-align: center;
+}
+
+.empty-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(31, 75, 153, 0.10);
+  color: var(--brand-primary);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.empty-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--gray-900);
+  margin-bottom: var(--space-2);
+}
+
+.empty-desc {
+  font-size: 14px;
+  color: var(--gray-600);
+  max-width: 720px;
+  margin: 0 auto var(--space-4);
+  line-height: 1.5;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: var(--gray-400);
+  margin-top: var(--space-2);
+}
+
+.empty-actions {
+  margin-top: var(--space-5);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 /* --------------------------------------------------------------------------
    BOOKING PAGE
    -------------------------------------------------------------------------- */

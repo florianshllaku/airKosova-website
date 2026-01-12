@@ -40,6 +40,12 @@ const AK_TRANSLATIONS = {
     btn_search: 'Kërko Fluturime',
     error_passengers: 'Maksimumi 5 pasagjerë për rezervim.',
 
+    // Results - Empty state
+    no_flights_title: 'Nuk u gjetën fluturime',
+    no_flights_desc: 'Nuk ka fluturime të disponueshme për këtë itinerar ose datë. Ju lutem provoni data të tjera.',
+    btn_back_home: 'Kthehu në fillim',
+    btn_try_again: 'Provo përsëri',
+
     // Login Form (Homepage)
     login_title: 'Hyrja e Klientit',
     login_subtitle: 'Hyni për të menaxhuar rezervimet tuaja',
@@ -259,6 +265,12 @@ const AK_TRANSLATIONS = {
     btn_search: 'Flüge Suchen',
     error_passengers: 'Maximal 5 Passagiere pro Buchung erlaubt.',
 
+    // Results - Empty state
+    no_flights_title: 'Keine Flüge gefunden',
+    no_flights_desc: 'Für diese Strecke / dieses Datum sind keine Flüge verfügbar. Bitte versuchen Sie andere Daten.',
+    btn_back_home: 'Zur Startseite',
+    btn_try_again: 'Erneut versuchen',
+
     // Login Form (Homepage)
     login_title: 'Kunden-Login',
     login_subtitle: 'Melden Sie sich an, um Ihre Buchungen zu verwalten',
@@ -477,6 +489,12 @@ const AK_TRANSLATIONS = {
     prices_eur: 'All prices in EUR',
     btn_search: 'Search Flights',
     error_passengers: 'Maximum 5 passengers allowed per booking.',
+
+    // Results - Empty state
+    no_flights_title: 'No flights found',
+    no_flights_desc: 'There are no available flights for this route/date. Please try different dates.',
+    btn_back_home: 'Back to Home',
+    btn_try_again: 'Try again',
 
     // Login Form (Homepage)
     login_title: 'Customer Login',
